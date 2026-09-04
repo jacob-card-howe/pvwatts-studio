@@ -1,0 +1,39 @@
+# Python caches and environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.venv*/
+venv/
+env/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Test and coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor, harness, and operating-system files
+.DS_Store
+.pi-gondolin-clipboard/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Runtime output
+*.log
+*.pid
+
+# Downloaded/generated research assets (runtime uses static/data/*.json)
+weather_data/
+weather_renton/
+seatac_tmy3.epw
+ssc_src/

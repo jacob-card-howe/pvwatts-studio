@@ -1,0 +1,9 @@
+# Treat generated weather datasets as data, not reviewable source text.
+*.clm -diff
+*.ddy -diff
+*.epw -diff
+*.pvsyst -diff
+*.rain -diff
+*.stat -diff
+*.wea -diff
+static/data/*.json -diff

@@ -1,0 +1,112 @@
+[
+  {
+    "id": "renton_tmy3",
+    "name": "Renton, WA (Renton Muni AP TMY3)",
+    "city": "Renton",
+    "state": "WA",
+    "lat": 47.491,
+    "lon": -122.216,
+    "elevation": 10.0,
+    "tz": -8.0,
+    "default": true
+  },
+  {
+    "id": "renton_tmyx",
+    "name": "Renton, WA (Renton Muni AP TMYx 2007-2021)",
+    "city": "Renton",
+    "state": "WA",
+    "lat": 47.493,
+    "lon": -122.214,
+    "elevation": 10.0,
+    "tz": -8.0,
+    "default": false
+  },
+  {
+    "id": "seatac_tmy3",
+    "name": "Seattle, WA (Seattle-Tacoma Intl AP TMY3)",
+    "city": "Seattle",
+    "state": "WA",
+    "lat": 47.443,
+    "lon": -122.306,
+    "elevation": 122.0,
+    "tz": -8.0,
+    "default": false
+  },
+  {
+    "id": "boeing_tmy3",
+    "name": "Seattle, WA (King County Intl AP - Boeing Field TMY3)",
+    "city": "Seattle",
+    "state": "WA",
+    "lat": 47.53,
+    "lon": -122.302,
+    "elevation": 20.0,
+    "tz": -8.0,
+    "default": false
+  },
+  {
+    "id": "boston_tmy3",
+    "name": "Boston, MA (Logan Intl AP TMY3)",
+    "city": "Boston",
+    "state": "MA",
+    "lat": 42.367,
+    "lon": -71.017,
+    "elevation": 6.0,
+    "tz": -5.0,
+    "default": false
+  },
+  {
+    "id": "los_angeles_tmy3",
+    "name": "Los Angeles, CA (LAX TMY3)",
+    "city": "Los Angeles",
+    "state": "CA",
+    "lat": 33.933,
+    "lon": -118.4,
+    "elevation": 30.0,
+    "tz": -8.0,
+    "default": false
+  },
+  {
+    "id": "phoenix_tmy3",
+    "name": "Phoenix, AZ (Sky Harbor Intl AP TMY3)",
+    "city": "Phoenix",
+    "state": "AZ",
+    "lat": 33.45,
+    "lon": -111.983,
+    "elevation": 337.0,
+    "tz": -7.0,
+    "default": false
+  },
+  {
+    "id": "denver_tmy3",
+    "name": "Denver, CO (Denver Intl AP TMY3)",
+    "city": "Denver",
+    "state": "CO",
+    "lat": 39.833,
+    "lon": -104.65,
+    "elevation": 1650.0,
+    "tz": -7.0,
+    "default": false
+  },
+  {
+    "id": "miami_tmy3",
+    "name": "Miami, FL (Miami Intl AP TMY3)",
+    "city": "Miami",
+    "state": "FL",
+    "lat": 25.8,
+    "lon": -80.3,
+    "elevation": 11.0,
+    "tz": -5.0,
+    "default": false
+  },
+  {
+    "id": "honolulu_tmy3",
+    "name": "Honolulu, HI (Honolulu Intl AP TMY3)",
+    "city": "Honolulu",
+    "state": "HI",
+    "lat": 21.317,
+    "lon": -157.933,
+    "elevation": 2.0,
+    "tz": -10.0,
+    "default": false
+  }
+]
