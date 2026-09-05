@@ -869,6 +869,25 @@ body {
   color: var(--accent-solar);
 }
 
+/* Independent-project disclaimer */
+.app-footer {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 1.5rem 1.5rem;
+}
+
+.app-footer p {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.app-footer strong {
+  color: var(--text-secondary);
+}
+
 /* Toast Notifications */
 .toast-container {
   position: fixed;

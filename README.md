@@ -2,6 +2,10 @@
 
 A small, dependency-free Python web interface for the official **PVWatts® v8 API**. It provides location search, monthly production charts, exports, advanced model inputs, and tilt/azimuth studies.
 
+## Independent-project disclaimer
+
+> **PVWatts Studio is an independent, third-party educational project developed as part of graduate coursework.** It is not affiliated with, sponsored by, endorsed by, or an official product of the National Laboratory of the Rockies (NLR, formerly NREL), the U.S. Department of Energy, or the PVWatts program. The web application only sends requests to and consumes responses from the publicly available PVWatts API; it does not include or redistribute the PVWatts service or its source code. No ownership of PVWatts, its underlying models or data, or any related names or marks is claimed. PVWatts® and related marks are the property of their respective owners. Use of the upstream API remains subject to its applicable terms and policies.
+
 ![PVWatts Studio interface](docs/imgs/pvwatts_studio.png)
 
 > **Which calculation path should I use?** The web application is the canonical path. It calls the current public PVWatts v8 service and NSRDB TMY data. The optional command-line engine uses bundled, preprocessed historical station data and is retained for offline comparisons.
@@ -134,4 +138,4 @@ Keep downloaded weather bundles, generated export formats, and source-code refer
 
 Location searches are submitted only when the user presses **Search** or **Enter**, rather than on every keystroke, to comply with the public Nominatim usage policy. Location data is © OpenStreetMap contributors.
 
-PVWatts is a registered trademark of the National Lab of the Rockies (formerly NREL). This project is an independent interface and is not endorsed by NLR.
+PVWatts is a registered trademark of the National Laboratory of the Rockies (formerly NREL). See the [independent-project disclaimer](#independent-project-disclaimer) above.

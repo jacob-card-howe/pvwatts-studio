@@ -114,6 +114,13 @@ class TestStaticUI(unittest.TestCase):
         self.assertNotIn("exercise", self.html.lower())
         self.assertNotIn("exercise", self.javascript.lower())
 
+    def test_independent_project_disclaimer_is_visible(self):
+        self.assertIn('aria-label="Independent-project disclaimer"', self.html)
+        self.assertIn("Independent educational project", self.html)
+        self.assertIn("graduate coursework", self.html)
+        self.assertIn("not affiliated with", self.html)
+        self.assertIn("only consumes the public PVWatts API", self.html)
+
     def test_monthly_solar_chart_is_built_with_api_data(self):
         self.assertIn("function renderMonthlySolarRadiationChart(res)", self.javascript)
         self.assertIn("data: values", self.javascript)
