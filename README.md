@@ -139,3 +139,7 @@ Keep downloaded weather bundles, generated export formats, and source-code refer
 Location searches are submitted only when the user presses **Search** or **Enter**, rather than on every keystroke, to comply with the public Nominatim usage policy. Location data is © OpenStreetMap contributors.
 
 PVWatts is a registered trademark of the National Laboratory of the Rockies (formerly NREL). See the [independent-project disclaimer](#independent-project-disclaimer) above.
+
+## License
+
+This project's own source is released under the [MIT License](LICENSE). The license covers only the code in this repository; it does not extend to the PVWatts service, NSRDB data, Chart.js, or OpenStreetMap data, which remain subject to their own terms.
