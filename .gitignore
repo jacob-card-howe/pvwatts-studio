@@ -37,5 +37,10 @@ weather_data/
 weather_renton/
 seatac_tmy3.epw
 ssc_src/
-# Playwright CLI output (may contain credentials)
+# Playwright CLI output (may contain credentials) and local browser config
 .playwright-cli/
+.playwright/
+
+# Local agent tooling, not part of the project
+.pi/
+.impeccable/
