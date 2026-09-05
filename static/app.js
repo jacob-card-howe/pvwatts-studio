@@ -20,24 +20,102 @@ let chartMonthlyAc = null;
 let chartMonthlySolrad = null;
 let chartSweep = null;
 
-// Color palette
-const COLORS = {
-  amber: '#f59e0b',
-  amberGlow: 'rgba(245, 158, 11, 0.4)',
-  cyan: '#06b6d4',
-  cyanGlow: 'rgba(6, 182, 212, 0.4)',
-  indigo: '#6366f1',
-  emerald: '#10b981',
-  rose: '#f43f5e',
-  textSecondary: '#9ca3af',
-  gridLine: 'rgba(75, 85, 99, 0.25)',
-  cardBg: 'rgba(17, 24, 39, 0.8)'
-};
+// Official UMass Lowell palette used by canvas-rendered Chart.js elements.
+const UML_COLORS = Object.freeze({
+  blue: '#1257D1',
+  black: '#000000',
+  darkBlue: '#00396E',
+  lightBlue: '#5ADBFF',
+  gray: '#878A8F',
+  brightBlue: '#00B5F1',
+  green: '#3BD5AE',
+  aqua: '#62DAFC',
+  yellow: '#FFD140',
+  orange: '#FB471F',
+  fern: '#027669',
+  river: '#4295A9',
+  gold: '#D0AF22',
+  maroon: '#9E3124',
+  textPrimary: '#F7FBFF',
+  textSecondary: '#B8C7D5',
+  gridLine: 'rgba(90, 219, 255, 0.16)',
+  tooltipBackground: '#001C36',
+  tooltipBorder: 'rgba(90, 219, 255, 0.34)'
+});
+
+// Seven sweep series use the most distinguishable UML accents on the dark canvas.
+const PARAMETRIC_COLORS = Object.freeze([
+  UML_COLORS.green,
+  UML_COLORS.aqua,
+  UML_COLORS.yellow,
+  UML_COLORS.orange,
+  UML_COLORS.fern,
+  UML_COLORS.river,
+  UML_COLORS.gold
+]);
 
 function formatDecimal(value, maximumFractionDigits = 3, minimumFractionDigits = 0) {
   const number = Number(value);
   if (!Number.isFinite(number)) return '—';
   return number.toLocaleString(undefined, { minimumFractionDigits, maximumFractionDigits });
+}
+
+function initCopyButtons() {
+  document.querySelectorAll('.copy-output-btn').forEach(button => {
+    button.dataset.defaultTitle = button.title;
+    button.dataset.defaultLabel = button.getAttribute('aria-label') || 'Copy calculated output';
+    button.addEventListener('click', copyCalculatedOutput);
+  });
+}
+
+async function copyCalculatedOutput(event) {
+  const button = event.currentTarget;
+  const target = document.getElementById(button.dataset.copyTarget);
+  const value = target?.textContent.trim();
+  if (!value || value === '—') {
+    showToast('No calculated value is available to copy yet.', 'error');
+    return;
+  }
+
+  const text = value;
+  try {
+    await writeClipboardText(text);
+    button.classList.add('copied');
+    button.title = 'Copied to clipboard';
+    button.setAttribute('aria-label', `Copied ${text} to clipboard`);
+    clearTimeout(button.copyFeedbackTimer);
+    button.copyFeedbackTimer = setTimeout(() => {
+      button.classList.remove('copied');
+      button.title = button.dataset.defaultTitle;
+      button.setAttribute('aria-label', button.dataset.defaultLabel);
+    }, 1600);
+    showToast(`Copied ${text}`);
+  } catch (error) {
+    console.error('Could not copy calculated output:', error);
+    showToast('Could not copy the calculated value. Check browser permissions.', 'error');
+  }
+}
+
+async function writeClipboardText(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (_error) {
+      // Fall through to the older textarea-based clipboard API.
+    }
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  textarea.remove();
+  if (!copied) throw new Error('Clipboard copy command was rejected');
 }
 
 // Initialize Application on DOM Ready
@@ -46,6 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initControls();
   initLocationSearch();
   initCharts();
+  initCopyButtons();
   updateLocationLabels();
   await updateSimulation();
 });
@@ -450,7 +529,7 @@ function renderSimulation(res) {
           <td>${solrad.toFixed(2)}</td>
           <td>${poaM2.toFixed(1)}</td>
           <td>${res.monthlyDc[month].toFixed(1)}</td>
-          <td style="color:var(--accent-amber); font-weight:700;">${res.monthlyAc[month].toFixed(1)}</td>
+          <td style="color:var(--accent-solar); font-weight:700;">${res.monthlyAc[month].toFixed(1)}</td>
         </tr>
       `;
     }
@@ -463,7 +542,7 @@ function renderSimulation(res) {
         <td>${res.annualSolrad.toFixed(2)}</td>
         <td>${totalPoaKwh.toFixed(1)}</td>
         <td>${totalDc.toFixed(1)}</td>
-        <td style="color:var(--accent-amber); font-weight:800;">${Math.round(res.annualAcKwh).toLocaleString()}</td>
+        <td style="color:var(--accent-solar); font-weight:800;">${Math.round(res.annualAcKwh).toLocaleString()}</td>
       `;
     }
   }
@@ -489,12 +568,12 @@ function renderMonthlySolarRadiationChart(res) {
       datasets: [{
         label: 'Solar Rad (kWh/m²/day)',
         data: values,
-        borderColor: '#06b6d4',
-        backgroundColor: 'rgba(6, 182, 212, 0.15)',
+        borderColor: UML_COLORS.brightBlue,
+        backgroundColor: 'rgba(0, 181, 241, 0.15)',
         borderWidth: 2.5,
         fill: true,
         tension: 0.35,
-        pointBackgroundColor: '#06b6d4',
+        pointBackgroundColor: UML_COLORS.brightBlue,
         pointRadius: 3
       }]
     },
@@ -505,23 +584,23 @@ function renderMonthlySolarRadiationChart(res) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1f2937',
-          titleColor: '#f9fafb',
-          bodyColor: '#06b6d4',
-          borderColor: '#374151',
+          backgroundColor: UML_COLORS.tooltipBackground,
+          titleColor: UML_COLORS.textPrimary,
+          bodyColor: UML_COLORS.brightBlue,
+          borderColor: UML_COLORS.tooltipBorder,
           borderWidth: 1
         }
       },
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: COLORS.textSecondary }
+          ticks: { color: UML_COLORS.textSecondary }
         },
         y: {
           beginAtZero: true,
-          grid: { color: COLORS.gridLine },
-          ticks: { color: COLORS.textSecondary },
-          title: { display: true, text: 'kWh/m²/day', color: COLORS.textSecondary }
+          grid: { color: UML_COLORS.gridLine },
+          ticks: { color: UML_COLORS.textSecondary },
+          title: { display: true, text: 'kWh/m²/day', color: UML_COLORS.textSecondary }
         }
       }
     }
@@ -539,8 +618,8 @@ function initCharts() {
         datasets: [{
           label: 'AC Energy (kWh)',
           data: [],
-          backgroundColor: 'rgba(245, 158, 11, 0.75)',
-          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(255, 209, 64, 0.72)',
+          borderColor: UML_COLORS.yellow,
           borderWidth: 1.5,
           borderRadius: 4
         }]
@@ -551,22 +630,22 @@ function initCharts() {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#1f2937',
-            titleColor: '#f9fafb',
-            bodyColor: '#f59e0b',
-            borderColor: '#374151',
+            backgroundColor: UML_COLORS.tooltipBackground,
+            titleColor: UML_COLORS.textPrimary,
+            bodyColor: UML_COLORS.yellow,
+            borderColor: UML_COLORS.tooltipBorder,
             borderWidth: 1
           }
         },
         scales: {
           x: {
             grid: { display: false },
-            ticks: { color: COLORS.textSecondary }
+            ticks: { color: UML_COLORS.textSecondary }
           },
           y: {
-            grid: { color: COLORS.gridLine },
-            ticks: { color: COLORS.textSecondary },
-            title: { display: true, text: 'kWh', color: COLORS.textSecondary }
+            grid: { color: UML_COLORS.gridLine },
+            ticks: { color: UML_COLORS.textSecondary },
+            title: { display: true, text: 'kWh', color: UML_COLORS.textSecondary }
           }
         }
       }
@@ -626,7 +705,7 @@ async function runParametricSweep() {
   }
 
   let resultIndex = 0;
-  const colorList = ['#38bdf8', '#818cf8', '#a855f7', '#f59e0b', '#ec4899', '#f43f5e', '#10b981'];
+  const colorList = PARAMETRIC_COLORS;
   const datasets = azs.map((azimuth, index) => ({
     label: `Azimuth ${azimuth}°`,
     data: tilts.map(() => Math.round(sweepResults[resultIndex++].annualAcKwh)),
@@ -650,11 +729,11 @@ async function runParametricSweep() {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'top', labels: { color: COLORS.textSecondary } }
+          legend: { position: 'top', labels: { color: UML_COLORS.textSecondary } }
         },
         scales: {
-          x: { grid: { color: COLORS.gridLine }, ticks: { color: COLORS.textSecondary } },
-          y: { grid: { color: COLORS.gridLine }, ticks: { color: COLORS.textSecondary }, title: { display: true, text: 'Annual AC (kWh)', color: COLORS.textSecondary } }
+          x: { grid: { color: UML_COLORS.gridLine }, ticks: { color: UML_COLORS.textSecondary } },
+          y: { grid: { color: UML_COLORS.gridLine }, ticks: { color: UML_COLORS.textSecondary }, title: { display: true, text: 'Annual AC (kWh)', color: UML_COLORS.textSecondary } }
         }
       }
     });

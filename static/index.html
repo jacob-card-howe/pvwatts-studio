@@ -198,7 +198,7 @@
                   <div id="compass-needle" class="compass-needle"></div>
                   <div class="compass-dot"></div>
                 </div>
-                <span id="compass-deg-label" style="font-size:0.75rem; font-family:monospace; color:var(--accent-amber);">180° S</span>
+                <span id="compass-deg-label" style="font-size:0.75rem; font-family:monospace; color:var(--accent-solar);">180° S</span>
               </div>
 
               <div class="dial-wrapper">
@@ -206,7 +206,7 @@
                 <div class="roof-pitch-box">
                   <div id="roof-line" class="roof-line"></div>
                 </div>
-                <span id="tilt-deg-label" style="font-size:0.75rem; font-family:monospace; color:var(--accent-cyan);">20° Tilt</span>
+                <span id="tilt-deg-label" style="font-size:0.75rem; font-family:monospace; color:var(--accent-info);">20° Tilt</span>
               </div>
             </div>
 
@@ -284,25 +284,61 @@
           <div class="kpi-row">
             <div class="kpi-card">
               <div class="kpi-label">Annual AC Energy</div>
-              <div class="kpi-value"><span id="kpi-ac-annual">—</span><span class="kpi-unit">kWh</span></div>
+              <div class="kpi-value-row">
+                <div class="kpi-value"><span id="kpi-ac-annual">—</span><span class="kpi-unit">kWh</span></div>
+                <button class="copy-output-btn" type="button" data-copy-target="kpi-ac-annual" aria-label="Copy annual AC energy" title="Copy annual AC energy">
+                  <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  <span class="sr-only">Copy annual AC energy</span>
+                </button>
+              </div>
               <div class="kpi-subtext">Estimated annual production</div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-label">Solar Radiation</div>
-              <div class="kpi-value"><span id="kpi-solrad-annual">—</span><span class="kpi-unit">kWh/m²/d</span></div>
+              <div class="kpi-value-row">
+                <div class="kpi-value"><span id="kpi-solrad-annual">—</span><span class="kpi-unit">kWh/m²/d</span></div>
+                <button class="copy-output-btn" type="button" data-copy-target="kpi-solrad-annual" aria-label="Copy solar radiation" title="Copy solar radiation">
+                  <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  <span class="sr-only">Copy solar radiation</span>
+                </button>
+              </div>
               <div class="kpi-subtext">Annual daily average</div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-label">Capacity Factor</div>
-              <div class="kpi-value"><span id="kpi-capacity-factor">—</span><span class="kpi-unit">%</span></div>
+              <div class="kpi-value-row">
+                <div class="kpi-value"><span id="kpi-capacity-factor">—</span><span class="kpi-unit">%</span></div>
+                <button class="copy-output-btn" type="button" data-copy-target="kpi-capacity-factor" aria-label="Copy capacity factor" title="Copy capacity factor">
+                  <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  <span class="sr-only">Copy capacity factor</span>
+                </button>
+              </div>
               <div class="kpi-subtext">AC output / 8,760h rated</div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-label">Energy Yield</div>
-              <div class="kpi-value"><span id="kpi-yield">—</span><span class="kpi-unit">kWh/kW</span></div>
+              <div class="kpi-value-row">
+                <div class="kpi-value"><span id="kpi-yield">—</span><span class="kpi-unit">kWh/kW</span></div>
+                <button class="copy-output-btn" type="button" data-copy-target="kpi-yield" aria-label="Copy energy yield" title="Copy energy yield">
+                  <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  <span class="sr-only">Copy energy yield</span>
+                </button>
+              </div>
               <div class="kpi-subtext">Annual kWh per kW nameplate</div>
             </div>
           </div>

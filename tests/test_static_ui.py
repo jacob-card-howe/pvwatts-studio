@@ -29,6 +29,39 @@ class TestStaticUI(unittest.TestCase):
         cls.html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
         cls.parser.feed(cls.html)
         cls.javascript = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+        cls.styles = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
+
+    def test_root_canvas_uses_the_page_background_during_overscroll(self):
+        self.assertRegex(
+            self.styles,
+            r"html\s*\{[^}]*background-color:\s*var\(--bg-primary\)",
+        )
+
+    def test_umass_lowell_palette_styles_the_ui_and_parametric_chart(self):
+        official_palette = {
+            "blue": "#1257D1",
+            "black": "#000000",
+            "dark-blue": "#00396E",
+            "light-blue": "#5ADBFF",
+            "gray": "#878A8F",
+            "bright-blue": "#00B5F1",
+            "green": "#3BD5AE",
+            "aqua": "#62DAFC",
+            "yellow": "#FFD140",
+            "orange": "#FB471F",
+            "fern": "#027669",
+            "river": "#4295A9",
+            "gold": "#D0AF22",
+            "maroon": "#9E3124",
+        }
+        for name, hex_value in official_palette.items():
+            with self.subTest(name=name):
+                self.assertIn(f"--uml-{name}: {hex_value};", self.styles)
+                self.assertIn(hex_value, self.javascript)
+
+        self.assertIn("const PARAMETRIC_COLORS = Object.freeze([", self.javascript)
+        self.assertIn("const colorList = PARAMETRIC_COLORS;", self.javascript)
+        self.assertIn("#parametric-tab > .card::before", self.styles)
 
     def test_continuous_number_inputs_accept_arbitrary_decimals(self):
         input_ids = (
@@ -85,6 +118,20 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("function renderMonthlySolarRadiationChart(res)", self.javascript)
         self.assertIn("data: values", self.javascript)
         self.assertNotIn("chartMonthlySolrad.data.datasets[0].data = res.monthlySolrad", self.javascript)
+
+    def test_calculated_kpis_have_copy_buttons(self):
+        output_ids = (
+            "kpi-ac-annual",
+            "kpi-solrad-annual",
+            "kpi-capacity-factor",
+            "kpi-yield",
+        )
+        self.assertEqual(self.html.count('class="copy-output-btn"'), len(output_ids))
+        for output_id in output_ids:
+            with self.subTest(output_id=output_id):
+                self.assertIn(f'data-copy-target="{output_id}"', self.html)
+        self.assertIn("navigator.clipboard?.writeText", self.javascript)
+        self.assertIn("function writeClipboardText(text)", self.javascript)
 
 
 if __name__ == "__main__":
