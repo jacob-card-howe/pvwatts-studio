@@ -2,6 +2,8 @@
 
 A small, dependency-free Python web interface for the official **PVWatts® v8 API**. It provides location search, monthly production charts, exports, advanced model inputs, and tilt/azimuth studies.
 
+![PVWatts Studio interface](docs/imgs/pvwatts_studio.png)
+
 > **Which calculation path should I use?** The web application is the canonical path. It calls the current public PVWatts v8 service and NSRDB TMY data. The optional command-line engine uses bundled, preprocessed historical station data and is retained for offline comparisons.
 
 ## Quick start
