@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PVWatts Studio — Design Character Previews</title>
+  <style>
+    :root {
+      --uml-blue: #1257d1;
+      --uml-black: #000000;
+      --uml-dark-blue: #00396e;
+      --uml-light-blue: #5adbff;
+      --uml-gray: #878a8f;
+      --uml-bright-blue: #00b5f1;
+      --uml-green: #3bd5ae;
+      --uml-aqua: #62dafc;
+      --uml-yellow: #ffd140;
+      --uml-orange: #fb471f;
+      --uml-fern: #027669;
+      --uml-river: #4295a9;
+      --uml-gold: #d0af22;
+      --uml-maroon: #9e3124;
+      --ink: #f7fbff;
+      --muted: #b8c7d5;
+      --page: #000b15;
+      --line: rgba(90, 219, 255, 0.24);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-height: 100%; background: var(--page); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background:
+        linear-gradient(rgba(90, 219, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(90, 219, 255, 0.025) 1px, transparent 1px),
+        var(--page);
+      background-size: 48px 48px;
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { background: var(--uml-yellow); color: #001c36; }
+    :focus-visible { outline: 2px solid var(--uml-light-blue); outline-offset: 3px; }
+    * { scrollbar-color: var(--uml-river) #001c36; scrollbar-width: thin; }
+    *::-webkit-scrollbar { width: 10px; height: 10px; }
+    *::-webkit-scrollbar-track { background: #001c36; }
+    *::-webkit-scrollbar-thumb { border: 2px solid #001c36; border-radius: 999px; background: var(--uml-river); }
+
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+
+    .review-shell { width: min(1560px, calc(100% - 40px)); margin: 0 auto; padding: 32px 0 64px; }
+    .review-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 28px;
+      align-items: end;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    .review-header h1 {
+      max-width: 13ch;
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 5vw, 4.5rem);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+      text-wrap: balance;
+    }
+    .review-header p { max-width: 68ch; margin: 0; color: var(--muted); font-size: 1rem; }
+    .review-mark {
+      display: grid;
+      width: 74px;
+      height: 74px;
+      place-items: center;
+      border: 1px solid rgba(255, 209, 64, 0.55);
+      border-radius: 20px;
+      background: rgba(255, 209, 64, 0.08);
+      color: var(--uml-yellow);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+    }
+
+    .character-switcher {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 22px 0 16px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(0, 28, 54, 0.7);
+    }
+    .character-button {
+      min-height: 64px;
+      padding: 10px 14px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      text-align: left;
+      transition: background 180ms cubic-bezier(.2,.8,.2,1), border-color 180ms cubic-bezier(.2,.8,.2,1), color 180ms cubic-bezier(.2,.8,.2,1), transform 180ms cubic-bezier(.2,.8,.2,1);
+    }
+    .character-button strong, .character-button span { display: block; }
+    .character-button strong { margin-bottom: 2px; color: var(--ink); font-size: 0.92rem; }
+    .character-button span { font-size: 0.76rem; }
+    .character-button:hover { border-color: rgba(90, 219, 255, 0.35); background: rgba(90, 219, 255, 0.07); transform: translateY(-1px); }
+    .character-button[aria-selected="true"] {
+      border-color: rgba(90, 219, 255, 0.5);
+      background: var(--uml-blue);
+      color: #e9f7ff;
+      box-shadow: 0 7px 24px rgba(18, 87, 209, 0.28);
+    }
+    .character-button[aria-selected="true"] strong { color: white; }
+
+    .decision-note {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .decision-note strong { color: var(--uml-green); }
+    .decision-note code { color: var(--uml-aqua); font-family: var(--mono); }
+
+    .preview-stage {
+      position: relative;
+      min-height: 780px;
+      overflow: hidden;
+      border: 1px solid rgba(90, 219, 255, 0.28);
+      border-radius: 24px;
+      background: #00070e;
+      box-shadow: 0 34px 90px rgba(0, 0, 0, 0.48);
+    }
+    .mock { min-height: 780px; }
+    .mock[hidden] { display: none; }
+
+    .mock button, .mock select, .mock input { pointer-events: none; }
+    .mock-topbar {
+      display: flex;
+      min-height: 68px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 24px;
+    }
+    .mock-brand { display: flex; align-items: center; gap: 11px; font-weight: 780; letter-spacing: -0.02em; }
+    .mock-brand-icon { display: grid; width: 36px; height: 36px; place-items: center; }
+    .mock-nav { display: flex; align-items: center; gap: 6px; }
+    .mock-nav button, .mock-action {
+      border: 0;
+      background: transparent;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .mock-main { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 18px; padding: 20px; }
+    .control-panel { padding: 18px; }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 19px; }
+    .panel-heading h2, .results-heading h2 { margin: 0; font-size: 1rem; }
+    .panel-heading button { padding: 6px 10px; }
+    .field { display: grid; gap: 7px; margin-bottom: 17px; }
+    .field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .field label, .field-row label { color: var(--muted); font-size: 0.76rem; font-weight: 700; }
+    .field-value { color: var(--uml-yellow); font-family: var(--mono); font-size: 0.76rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .fake-input { display: flex; min-height: 38px; align-items: center; justify-content: space-between; padding: 0 11px; color: var(--ink); font-size: 0.8rem; }
+    .fake-input span:last-child { color: var(--uml-aqua); }
+    .range { position: relative; height: 18px; }
+    .range::before { position: absolute; top: 8px; left: 0; right: 0; height: 3px; content: ""; }
+    .range::after { position: absolute; top: 3px; left: 54%; width: 13px; height: 13px; border-radius: 50%; content: ""; }
+    .orientation { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
+    .orientation > div { min-height: 92px; padding: 12px; text-align: center; }
+    .orientation small { display: block; margin-bottom: 12px; color: var(--muted); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+    .dial { position: relative; width: 39px; height: 39px; margin: 0 auto 6px; border: 1px dashed var(--uml-light-blue); border-radius: 50%; }
+    .dial::before { position: absolute; bottom: 50%; left: calc(50% - 1px); width: 2px; height: 15px; border-radius: 2px; background: var(--uml-yellow); content: ""; transform: rotate(180deg); transform-origin: bottom; }
+    .measure { color: var(--uml-yellow); font-family: var(--mono); font-size: 0.68rem; font-variant-numeric: tabular-nums; }
+
+    .results { min-width: 0; }
+    .results-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 42px; margin-bottom: 13px; padding: 0 2px; }
+    .results-heading p { margin: 0; color: var(--uml-green); font-family: var(--mono); font-size: 0.7rem; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .metric { min-width: 0; padding: 16px; }
+    .metric-label { color: var(--muted); font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+    .metric-value { margin-top: 7px; font-family: var(--mono); font-size: clamp(1.25rem, 2.4vw, 1.75rem); font-weight: 800; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .metric-value small { margin-left: 4px; color: var(--muted); font-size: 0.62rem; letter-spacing: 0; }
+    .metric-note { margin-top: 5px; color: var(--uml-green); font-size: 0.65rem; }
+    .data-grid { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 14px; }
+    .chart-panel, .comparison-panel { min-width: 0; padding: 18px; }
+    .chart-panel h3, .comparison-panel h3, .table-panel h3 { margin: 0; font-size: 0.87rem; }
+    .chart-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+    .chart-meta span { color: var(--muted); font-family: var(--mono); font-size: 0.67rem; }
+    .chart {
+      display: flex;
+      height: 180px;
+      align-items: end;
+      gap: clamp(5px, 1vw, 12px);
+      padding: 18px 8px 0;
+      border-bottom: 1px solid rgba(90, 219, 255, 0.28);
+      background: repeating-linear-gradient(to top, rgba(90, 219, 255, 0.08) 0 1px, transparent 1px 44px);
+    }
+    .bar { position: relative; flex: 1; min-width: 5px; height: var(--h); background: var(--uml-yellow); }
+    .bar::after { position: absolute; top: calc(100% + 7px); left: 50%; color: var(--muted); content: attr(data-month); font-family: var(--mono); font-size: 0.58rem; transform: translateX(-50%); }
+    .comparison-list { display: grid; gap: 10px; margin-top: 19px; }
+    .comparison-row { display: grid; grid-template-columns: 52px 1fr 58px; gap: 9px; align-items: center; font-size: 0.7rem; }
+    .comparison-row span:first-child { color: var(--muted); }
+    .comparison-row span:last-child { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .comparison-track { height: 6px; overflow: hidden; background: rgba(90, 219, 255, 0.1); }
+    .comparison-track i { display: block; width: var(--w); height: 100%; background: var(--uml-bright-blue); }
+    .table-panel { margin-top: 14px; padding: 18px; }
+    .table-head, .table-row { display: grid; grid-template-columns: 1fr repeat(3, minmax(72px, 0.65fr)); align-items: center; gap: 12px; }
+    .table-head { margin-top: 16px; padding: 9px 11px; color: var(--muted); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
+    .table-row { padding: 9px 11px; border-bottom: 1px solid rgba(90, 219, 255, 0.1); font-family: var(--mono); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
+    .table-head span:not(:first-child), .table-row span:not(:first-child) { text-align: right; }
+    .table-row span:last-child { color: var(--uml-yellow); font-weight: 800; }
+
+    /* 1 — Layered and calibrated */
+    .mock--layered {
+      background:
+        radial-gradient(circle at 50% -15%, rgba(18, 87, 209, 0.42), transparent 48%),
+        #000b15;
+    }
+    .mock--layered .mock-topbar { border-bottom: 1px solid rgba(90, 219, 255, 0.16); background: rgba(0, 0, 0, 0.78); }
+    .mock--layered .mock-brand-icon { border-radius: 10px; background: linear-gradient(135deg, var(--uml-blue), var(--uml-bright-blue)); box-shadow: 0 8px 22px rgba(18, 87, 209, 0.3); }
+    .mock--layered .mock-nav { padding: 4px; border: 1px solid rgba(90, 219, 255, 0.18); border-radius: 10px; background: rgba(0, 57, 110, 0.35); }
+    .mock--layered .mock-nav button { padding: 7px 12px; border-radius: 7px; color: var(--muted); }
+    .mock--layered .mock-nav button:first-child { background: var(--uml-blue); color: white; }
+    .mock--layered .mock-action { padding: 7px 11px; border: 1px solid rgba(90, 219, 255, 0.32); border-radius: 8px; background: rgba(0, 57, 110, 0.42); }
+    .mock--layered .control-panel, .mock--layered .metric, .mock--layered .chart-panel, .mock--layered .comparison-panel, .mock--layered .table-panel {
+      border: 1px solid rgba(90, 219, 255, 0.18);
+      border-radius: 14px;
+      background: rgba(0, 57, 110, 0.28);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2);
+    }
+    .mock--layered .panel-heading button { border: 1px solid rgba(90, 219, 255, 0.3); border-radius: 7px; background: rgba(0, 57, 110, 0.45); }
+    .mock--layered .fake-input { border: 1px solid rgba(90, 219, 255, 0.34); border-radius: 8px; background: #071a2b; }
+    .mock--layered .range::before { border-radius: 99px; background: var(--uml-dark-blue); }
+    .mock--layered .range::after { background: var(--uml-yellow); box-shadow: 0 0 12px rgba(255, 209, 64, 0.4); }
+    .mock--layered .orientation > div { border: 1px solid rgba(90, 219, 255, 0.15); border-radius: 9px; background: rgba(0, 0, 0, 0.27); }
+    .mock--layered .metric { position: relative; overflow: hidden; }
+    .mock--layered .metric::before { position: absolute; inset: 0 0 auto; height: 2px; background: linear-gradient(90deg, var(--uml-yellow), var(--uml-bright-blue)); content: ""; }
+    .mock--layered .bar { border: 1px solid var(--uml-yellow); border-radius: 4px 4px 0 0; background: rgba(255, 209, 64, 0.72); }
+    .mock--layered .comparison-track, .mock--layered .comparison-track i { border-radius: 99px; }
+    .mock--layered .table-head { background: rgba(0, 57, 110, 0.58); }
+
+    /* 2 — Flat and schematic */
+    .mock--flat { background: #00080f; }
+    .mock--flat .mock-topbar { border-bottom: 1px solid var(--uml-river); background: #000000; }
+    .mock--flat .mock-brand-icon { border: 1px solid var(--uml-bright-blue); border-radius: 2px; color: var(--uml-bright-blue); }
+    .mock--flat .mock-nav { gap: 20px; }
+    .mock--flat .mock-nav button { position: relative; padding: 8px 0; color: var(--muted); }
+    .mock--flat .mock-nav button:first-child { color: white; }
+    .mock--flat .mock-nav button:first-child::after { position: absolute; right: 0; bottom: -15px; left: 0; height: 2px; background: var(--uml-yellow); content: ""; }
+    .mock--flat .mock-action { padding: 6px 10px; border: 1px solid var(--uml-river); border-radius: 2px; }
+    .mock--flat .mock-main { gap: 0; padding: 0; }
+    .mock--flat .control-panel { border-right: 1px solid var(--uml-river); background: #00111f; }
+    .mock--flat .results { padding: 18px 20px; }
+    .mock--flat .panel-heading { padding-bottom: 12px; border-bottom: 1px solid rgba(90, 219, 255, 0.28); }
+    .mock--flat .panel-heading button { border: 1px solid var(--uml-river); border-radius: 2px; background: transparent; }
+    .mock--flat .fake-input { border: 0; border-bottom: 1px solid var(--uml-river); border-radius: 0; background: rgba(0, 57, 110, 0.2); }
+    .mock--flat .range::before { background: var(--uml-dark-blue); }
+    .mock--flat .range::after { border: 2px solid #00111f; background: var(--uml-yellow); }
+    .mock--flat .orientation { border-top: 1px solid rgba(90, 219, 255, 0.24); padding-top: 16px; }
+    .mock--flat .orientation > div { border: 0; border-radius: 0; background: transparent; }
+    .mock--flat .results-heading { border-bottom: 1px solid rgba(90, 219, 255, 0.24); }
+    .mock--flat .metric-grid { gap: 1px; background: var(--uml-dark-blue); border: 1px solid var(--uml-dark-blue); }
+    .mock--flat .metric { background: #001425; }
+    .mock--flat .metric:first-child { box-shadow: inset 0 2px var(--uml-yellow); }
+    .mock--flat .data-grid { gap: 1px; border: 1px solid var(--uml-dark-blue); background: var(--uml-dark-blue); }
+    .mock--flat .chart-panel, .mock--flat .comparison-panel, .mock--flat .table-panel { border: 0; border-radius: 0; background: #001425; }
+    .mock--flat .bar { background: var(--uml-gold); }
+    .mock--flat .comparison-track { height: 4px; }
+    .mock--flat .comparison-track i { background: var(--uml-aqua); }
+    .mock--flat .table-panel { border-top: 1px solid var(--uml-river); }
+    .mock--flat .table-head { border-top: 1px solid var(--uml-river); border-bottom: 1px solid var(--uml-river); }
+
+    /* 3 — Luminous and tactile */
+    .mock--luminous {
+      background:
+        radial-gradient(circle at 76% 12%, rgba(0, 181, 241, 0.24), transparent 28%),
+        radial-gradient(circle at 20% 82%, rgba(18, 87, 209, 0.28), transparent 33%),
+        #000713;
+    }
+    .mock--luminous .mock-topbar { border-bottom: 1px solid rgba(98, 218, 252, 0.22); background: rgba(0, 14, 28, 0.72); backdrop-filter: blur(18px); }
+    .mock--luminous .mock-brand-icon { border: 1px solid rgba(98, 218, 252, 0.65); border-radius: 14px; background: linear-gradient(145deg, rgba(18, 87, 209, 0.95), rgba(0, 181, 241, 0.62)); box-shadow: 0 9px 28px rgba(0, 181, 241, 0.25), inset 0 1px rgba(255,255,255,0.28); }
+    .mock--luminous .mock-nav { padding: 5px; border: 1px solid rgba(98, 218, 252, 0.26); border-radius: 15px; background: rgba(0, 28, 54, 0.66); box-shadow: inset 0 1px rgba(255, 255, 255, 0.07); }
+    .mock--luminous .mock-nav button { padding: 7px 13px; border-radius: 11px; color: var(--muted); }
+    .mock--luminous .mock-nav button:first-child { background: linear-gradient(135deg, var(--uml-blue), #0848a7); color: white; box-shadow: 0 8px 18px rgba(18, 87, 209, 0.35), inset 0 1px rgba(255,255,255,0.18); }
+    .mock--luminous .mock-action { padding: 8px 12px; border: 1px solid rgba(98, 218, 252, 0.42); border-radius: 11px; background: linear-gradient(180deg, rgba(0, 57, 110, 0.62), rgba(0, 28, 54, 0.82)); box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24), inset 0 1px rgba(255,255,255,0.1); }
+    .mock--luminous .control-panel, .mock--luminous .metric, .mock--luminous .chart-panel, .mock--luminous .comparison-panel, .mock--luminous .table-panel {
+      border: 1px solid rgba(98, 218, 252, 0.24);
+      border-radius: 20px;
+      background: linear-gradient(145deg, rgba(0, 57, 110, 0.42), rgba(0, 20, 39, 0.78));
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.36), inset 0 1px rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+    }
+    .mock--luminous .panel-heading button { border: 1px solid rgba(98, 218, 252, 0.34); border-radius: 10px; background: linear-gradient(180deg, rgba(0, 57, 110, 0.62), rgba(0, 28, 54, 0.82)); box-shadow: 0 7px 15px rgba(0,0,0,0.24), inset 0 1px rgba(255,255,255,0.1); }
+    .mock--luminous .fake-input { border: 1px solid rgba(98, 218, 252, 0.34); border-radius: 12px; background: linear-gradient(180deg, rgba(0, 8, 18, 0.8), rgba(7, 26, 43, 0.92)); box-shadow: inset 0 2px 5px rgba(0,0,0,0.42), 0 1px rgba(255,255,255,0.06); }
+    .mock--luminous .range::before { border-radius: 99px; background: linear-gradient(90deg, var(--uml-bright-blue) 0 54%, rgba(0,57,110,0.9) 54%); box-shadow: inset 0 1px 2px rgba(0,0,0,0.7); }
+    .mock--luminous .range::after { border: 2px solid #fff4b8; background: var(--uml-yellow); box-shadow: 0 0 0 4px rgba(255, 209, 64, 0.12), 0 5px 14px rgba(255, 209, 64, 0.32); }
+    .mock--luminous .orientation > div { border: 1px solid rgba(98, 218, 252, 0.18); border-radius: 14px; background: rgba(0, 7, 19, 0.46); box-shadow: inset 0 1px rgba(255,255,255,0.06); }
+    .mock--luminous .metric { position: relative; overflow: hidden; }
+    .mock--luminous .metric:first-child { border-color: rgba(255, 209, 64, 0.42); box-shadow: 0 18px 45px rgba(0,0,0,0.34), 0 0 34px rgba(255,209,64,0.08), inset 0 1px rgba(255,255,255,0.1); }
+    .mock--luminous .metric:first-child::after { position: absolute; width: 90px; height: 90px; right: -38px; bottom: -52px; border-radius: 50%; background: rgba(255,209,64,0.14); filter: blur(14px); content: ""; }
+    .mock--luminous .bar { border: 1px solid #ffe78d; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, #ffe06d, var(--uml-gold)); box-shadow: 0 -7px 18px rgba(255, 209, 64, 0.16); }
+    .mock--luminous .comparison-track, .mock--luminous .comparison-track i { border-radius: 99px; }
+    .mock--luminous .comparison-track i { box-shadow: 0 0 13px rgba(0,181,241,0.4); }
+    .mock--luminous .table-head { border-radius: 8px; background: rgba(0, 87, 160, 0.42); }
+
+    @media (max-width: 1000px) {
+      .preview-stage, .mock { min-height: 980px; }
+      .mock-main { grid-template-columns: 260px minmax(0, 1fr); }
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .data-grid { grid-template-columns: 1fr; }
+      .comparison-panel { display: none; }
+    }
+
+    @media (max-width: 720px) {
+      .review-shell { width: min(100% - 24px, 1560px); padding-top: 20px; }
+      .review-header { grid-template-columns: 1fr; }
+      .review-header h1 { max-width: 11ch; }
+      .review-mark { display: none; }
+      .character-switcher { grid-template-columns: 1fr; }
+      .character-button { min-height: 54px; }
+      .decision-note { flex-direction: column; gap: 4px; }
+      .preview-stage { min-height: 1160px; border-radius: 16px; }
+      .mock { min-height: 1160px; }
+      .mock-topbar { align-items: center; padding: 0 14px; }
+      .mock-brand span { display: none; }
+      .mock-nav button { font-size: 0; }
+      .mock-nav button::before { font-size: 0.72rem; content: "Sim"; }
+      .mock-nav button + button::before { content: "Compare"; }
+      .mock-action { font-size: 0.7rem; }
+      .mock-main, .mock--flat .mock-main { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+      .mock--flat .control-panel { border-right: 0; border-bottom: 1px solid var(--uml-river); }
+      .control-panel { padding: 14px; }
+      .field:nth-of-type(n+4), .orientation { display: none; }
+      .results, .mock--flat .results { padding: 0; }
+      .results-heading { align-items: start; flex-direction: column; gap: 3px; }
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .metric { padding: 13px; }
+      .metric-note { display: none; }
+      .chart-panel, .table-panel { padding: 14px; }
+      .chart { gap: 4px; }
+      .bar::after { display: none; }
+      .table-head, .table-row { grid-template-columns: 0.8fr repeat(2, 1fr); }
+      .table-head span:nth-child(2), .table-row span:nth-child(2) { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="review-shell">
+    <header class="review-header">
+      <div>
+        <h1>Choose the instrument’s character.</h1>
+        <p>Three depth treatments using the same UMass Lowell-derived palette, information architecture, and sample PVWatts data. Only the component and elevation philosophy changes.</p>
+      </div>
+      <div class="review-mark" aria-hidden="true">
+        <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+        </svg>
+      </div>
+    </header>
+
+    <div class="character-switcher" role="tablist" aria-label="Design character previews">
+      <button class="character-button" type="button" role="tab" id="tab-layered" aria-controls="preview-layered" aria-selected="true" data-preview="layered">
+        <strong>Layered and calibrated</strong>
+        <span>Tonal structure, selective signals</span>
+      </button>
+      <button class="character-button" type="button" role="tab" id="tab-flat" aria-controls="preview-flat" aria-selected="false" data-preview="flat" tabindex="-1">
+        <strong>Flat and schematic</strong>
+        <span>Crisp lines, maximum directness</span>
+      </button>
+      <button class="character-button" type="button" role="tab" id="tab-luminous" aria-controls="preview-luminous" aria-selected="false" data-preview="luminous" tabindex="-1">
+        <strong>Luminous and tactile</strong>
+        <span>Physical controls, stronger depth</span>
+      </button>
+    </div>
+
+    <div class="decision-note">
+      <span><strong>Interactive:</strong> switch treatments above; the product content stays fixed.</span>
+      <span>Prototype only · <code>static/</code> is untouched</span>
+    </div>
+
+    <section class="preview-stage" aria-live="polite">
+      <article class="mock mock--layered" id="preview-layered" role="tabpanel" aria-labelledby="tab-layered" data-character="layered"></article>
+      <article class="mock mock--flat" id="preview-flat" role="tabpanel" aria-labelledby="tab-flat" data-character="flat" hidden></article>
+      <article class="mock mock--luminous" id="preview-luminous" role="tabpanel" aria-labelledby="tab-luminous" data-character="luminous" hidden></article>
+    </section>
+  </main>
+
+  <template id="mock-template">
+    <header class="mock-topbar">
+      <div class="mock-brand">
+        <span class="mock-brand-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+          </svg>
+        </span>
+        <span>PVWatts Studio</span>
+      </div>
+      <nav class="mock-nav" aria-label="Preview navigation">
+        <button type="button">System Simulator</button>
+        <button type="button">Compare Systems</button>
+      </nav>
+      <button type="button" class="mock-action">Export result</button>
+    </header>
+
+    <div class="mock-main">
+      <aside class="control-panel">
+        <div class="panel-heading">
+          <h2>System parameters</h2>
+          <button type="button">Reset</button>
+        </div>
+        <div class="field">
+          <label>System location</label>
+          <div class="fake-input"><span>Renton, Washington</span><span>Search</span></div>
+        </div>
+        <div class="field">
+          <div class="field-row"><label>DC system size</label><span class="field-value">4.0 kW</span></div>
+          <div class="range" aria-hidden="true"></div>
+        </div>
+        <div class="field">
+          <label>Module type</label>
+          <div class="fake-input"><span>Standard</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div>
+        </div>
+        <div class="field">
+          <label>Array type</label>
+          <div class="fake-input"><span>Fixed open rack</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div>
+        </div>
+        <div class="field">
+          <div class="field-row"><label>System losses</label><span class="field-value">14.08%</span></div>
+          <div class="range" aria-hidden="true"></div>
+        </div>
+        <div class="field">
+          <div class="field-row"><label>Array tilt</label><span class="field-value">20°</span></div>
+          <div class="range" aria-hidden="true"></div>
+        </div>
+        <div class="orientation">
+          <div><small>Azimuth</small><div class="dial"></div><span class="measure">180° S</span></div>
+          <div><small>Roof tilt</small><svg width="46" height="39" viewBox="0 0 46 39" fill="none" aria-hidden="true"><path d="M3 34h40" stroke="#00b5f1"/><path d="M7 34l31-11" stroke="#ffd140" stroke-width="2"/></svg><span class="measure">20°</span></div>
+        </div>
+      </aside>
+
+      <section class="results">
+        <div class="results-heading">
+          <h2>Estimated system performance</h2>
+          <p>PVWatts v8 · NSRDB grid 47.50, −122.20</p>
+        </div>
+        <div class="metric-grid">
+          <div class="metric"><div class="metric-label">Annual AC energy</div><div class="metric-value">5,240<small>kWh</small></div><div class="metric-note">Estimated production</div></div>
+          <div class="metric"><div class="metric-label">Solar radiation</div><div class="metric-value">4.66<small>kWh/m²/d</small></div><div class="metric-note">Annual daily average</div></div>
+          <div class="metric"><div class="metric-label">Capacity factor</div><div class="metric-value">15.0<small>%</small></div><div class="metric-note">AC output / rated</div></div>
+          <div class="metric"><div class="metric-label">Energy yield</div><div class="metric-value">1,310<small>kWh/kW</small></div><div class="metric-note">Annual nameplate yield</div></div>
+        </div>
+
+        <div class="data-grid">
+          <div class="chart-panel">
+            <div class="chart-meta"><h3>Monthly AC energy</h3><span>kWh</span></div>
+            <div class="chart" aria-label="Sample monthly AC energy bar chart">
+              <i class="bar" data-month="J" style="--h:52%"></i><i class="bar" data-month="F" style="--h:59%"></i><i class="bar" data-month="M" style="--h:79%"></i><i class="bar" data-month="A" style="--h:80%"></i><i class="bar" data-month="M" style="--h:89%"></i><i class="bar" data-month="J" style="--h:83%"></i><i class="bar" data-month="J" style="--h:92%"></i><i class="bar" data-month="A" style="--h:85%"></i><i class="bar" data-month="S" style="--h:75%"></i><i class="bar" data-month="O" style="--h:61%"></i><i class="bar" data-month="N" style="--h:45%"></i><i class="bar" data-month="D" style="--h:38%"></i>
+            </div>
+          </div>
+          <div class="comparison-panel">
+            <div class="chart-meta"><h3>Configuration comparison</h3><span>annual AC</span></div>
+            <div class="comparison-list">
+              <div class="comparison-row"><span>20° / S</span><div class="comparison-track"><i style="--w:88%"></i></div><span>5,240</span></div>
+              <div class="comparison-row"><span>30° / S</span><div class="comparison-track"><i style="--w:96%"></i></div><span>5,416</span></div>
+              <div class="comparison-row"><span>40° / S</span><div class="comparison-track"><i style="--w:92%"></i></div><span>5,338</span></div>
+              <div class="comparison-row"><span>20° / SW</span><div class="comparison-track"><i style="--w:79%"></i></div><span>5,018</span></div>
+              <div class="comparison-row"><span>20° / W</span><div class="comparison-track"><i style="--w:63%"></i></div><span>4,742</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-panel">
+          <h3>Monthly performance</h3>
+          <div class="table-head"><span>Month</span><span>Solar radiation</span><span>DC energy</span><span>AC energy</span></div>
+          <div class="table-row"><span>January</span><span>3.11</span><span>340.3</span><span>323.7</span></div>
+          <div class="table-row"><span>February</span><span>3.89</span><span>380.1</span><span>362.2</span></div>
+          <div class="table-row"><span>March</span><span>4.96</span><span>523.1</span><span>498.2</span></div>
+          <div class="table-row"><span>April</span><span>5.38</span><span>525.3</span><span>500.7</span></div>
+        </div>
+      </section>
+    </div>
+  </template>
+
+  <script>
+    const template = document.querySelector('#mock-template');
+    const panels = [...document.querySelectorAll('[role="tabpanel"]')];
+    panels.forEach(panel => panel.append(template.content.cloneNode(true)));
+
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    function showPreview(name, moveFocus = false) {
+      tabs.forEach(tab => {
+        const selected = tab.dataset.preview === name;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        if (selected && moveFocus) tab.focus();
+      });
+      panels.forEach(panel => { panel.hidden = panel.dataset.character !== name; });
+      history.replaceState(null, '', `#${name}`);
+    }
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => showPreview(tab.dataset.preview));
+      tab.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        let nextIndex = index;
+        if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = tabs.length - 1;
+        showPreview(tabs[nextIndex].dataset.preview, true);
+      });
+    });
+
+    const requested = location.hash.slice(1);
+    if (tabs.some(tab => tab.dataset.preview === requested)) showPreview(requested);
+  </script>
+</body>
+</html>
