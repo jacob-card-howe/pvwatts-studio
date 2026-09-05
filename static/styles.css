@@ -1091,6 +1091,23 @@ body {
   color: var(--text-secondary);
 }
 
+.footer-github {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.footer-github:hover,
+.footer-github:focus-visible {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
 /* Toast Notifications */
 .toast-container {
   position: fixed;
