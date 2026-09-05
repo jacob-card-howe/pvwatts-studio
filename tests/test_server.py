@@ -117,6 +117,22 @@ class TestPVWattsHTTPServer(unittest.TestCase):
             caught.exception.close()
         self.assertEqual(payload["code"], "invalid_request")
 
+    def test_client_disconnect_does_not_trigger_a_second_response(self):
+        class DisconnectingHandler:
+            def __init__(self):
+                self.response_attempts = 0
+
+            def send_json_response(self, _response, *, status=200):
+                self.response_attempts += 1
+                raise BrokenPipeError("client closed the socket")
+
+            def log_error(self, *_args):
+                raise AssertionError("Expected client disconnect must not be logged as an API error")
+
+        handler = DisconnectingHandler()
+        server.PVWattsHTTPHandler._run_json_endpoint(handler, lambda: {"result": "ok"})
+        self.assertEqual(handler.response_attempts, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

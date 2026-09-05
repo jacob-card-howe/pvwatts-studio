@@ -37,3 +37,5 @@ weather_data/
 weather_renton/
 seatac_tmy3.epw
 ssc_src/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

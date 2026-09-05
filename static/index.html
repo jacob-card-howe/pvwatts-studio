@@ -2,19 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PVWatts Studio - High-Performance Solar Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PVWatts Studio — Official-Model Solar Production Estimates</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
   <!-- Chart.js for beautiful interactive charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to calculator</a>
 
   <!-- App Header -->
   <header class="app-header">
     <div class="header-content">
       <div class="logo-area">
-        <div class="logo-icon">
+        <div class="logo-icon" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="4"></circle>
             <path d="M12 2v2"></path>
@@ -34,159 +36,167 @@
       </div>
 
       <!-- Navigation Tabs -->
-      <nav class="nav-tabs">
-        <button class="nav-tab-btn active" data-tab="simulator-tab">
+      <nav class="nav-tabs" role="tablist" aria-label="Workspace">
+        <button id="tab-simulator" class="nav-tab-btn active" type="button" role="tab" aria-selected="true" aria-controls="simulator-tab" tabindex="0" data-tab="simulator-tab" aria-label="System Simulator">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="3" width="20" height="14" rx="2"></rect>
             <line x1="8" y1="21" x2="16" y2="21"></line>
             <line x1="12" y1="17" x2="12" y2="21"></line>
           </svg>
-          System Simulator
+          <span class="nav-label-wide">System Simulator</span><span class="nav-label-compact" aria-hidden="true">Estimate</span>
         </button>
-        <button class="nav-tab-btn" data-tab="parametric-tab">
+        <button id="tab-parametric" class="nav-tab-btn" type="button" role="tab" aria-selected="false" aria-controls="parametric-tab" tabindex="-1" data-tab="parametric-tab" aria-label="Parametric Studio">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="20" x2="18" y2="10"></line>
             <line x1="12" y1="20" x2="12" y2="4"></line>
             <line x1="6" y1="20" x2="6" y2="14"></line>
           </svg>
-          Parametric Studio
+          <span class="nav-label-wide">Parametric Studio</span><span class="nav-label-compact" aria-hidden="true">Compare</span>
         </button>
       </nav>
 
       <!-- Header Actions -->
-      <div class="header-actions">
-        <button id="btn-export-json" class="btn btn-outline btn-sm">Export JSON</button>
-        <button id="btn-export-csv" class="btn btn-outline btn-sm">Export CSV</button>
+      <div class="header-actions" aria-label="Export results">
+        <button id="btn-export-json" class="btn btn-outline btn-sm" type="button" disabled aria-label="Export results as JSON" aria-describedby="export-help">
+          <span class="export-label-wide">Export JSON</span><span class="export-label-compact" aria-hidden="true">JSON</span>
+        </button>
+        <button id="btn-export-csv" class="btn btn-outline btn-sm" type="button" disabled aria-label="Export results as CSV" aria-describedby="export-help">
+          <span class="export-label-wide">Export CSV</span><span class="export-label-compact" aria-hidden="true">CSV</span>
+        </button>
+        <span id="export-help" class="sr-only">Exports become available after a successful calculation.</span>
       </div>
     </div>
   </header>
 
   <!-- Main Container -->
-  <main class="main-container">
+  <main id="main-content" class="main-container" tabindex="-1">
 
     <!-- ====================================================================
          TAB 1: SYSTEM SIMULATOR (Real-Time Interactive Solar Calculator)
          ==================================================================== -->
-    <div id="simulator-tab" class="tab-content active">
+    <div id="simulator-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-simulator" tabindex="0">
       <div class="sim-grid">
 
         <!-- Left Column: Input Parameters Controls -->
         <aside class="sidebar">
-          <div class="card">
+          <form id="system-parameters" class="card" aria-labelledby="system-parameters-heading">
             <div class="card-header">
-              <h2 class="card-title">
+              <h2 id="system-parameters-heading" class="card-title">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
                 System Parameters
               </h2>
-              <button id="btn-reset-defaults" class="btn btn-outline btn-sm" title="Reset to standard defaults">Reset</button>
+              <button id="btn-reset-defaults" class="btn btn-outline btn-sm" type="button" title="Reset to standard defaults">Reset</button>
             </div>
 
-            <!-- Optional per-session NLR API Key -->
-            <div class="form-group">
-              <label class="form-label" for="input-api-key">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="7.5" cy="15.5" r="5.5"></circle>
-                  <path d="m21 2-9.6 9.6"></path>
-                  <path d="m15.5 7.5 2 2L20 7l-2-2"></path>
-                </svg>
-                NLR API Key
-              </label>
-              <input id="input-api-key" class="text-input" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="256" placeholder="Optional — uses server key or DEMO_KEY when blank">
-              <div class="location-help">
-                Used for PVWatts requests only and kept in this browser tab. Get a free key at
-                <a href="https://developer.nlr.gov/" target="_blank" rel="noopener">developer.nlr.gov</a>.
+            <p class="auto-update-note">
+              Start with a location and system size. Valid changes recalculate the estimate automatically after a short pause.
+            </p>
+
+            <fieldset class="parameter-group quick-estimate-group">
+              <legend>Quick estimate</legend>
+
+              <!-- Dynamic Location Search -->
+              <div class="form-group location-picker">
+                <label class="form-label" for="input-location">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                  </svg>
+                  System location
+                </label>
+                <div class="location-search-row">
+                  <input id="input-location" class="text-input" type="search" value="Renton, WA" autocomplete="street-address" placeholder="Address, city, ZIP, or lat, lon" role="combobox" aria-autocomplete="list" aria-controls="location-results" aria-expanded="false" aria-describedby="location-search-status">
+                  <button id="btn-search-location" class="btn btn-primary btn-sm" type="button">Search</button>
+                </div>
+                <div id="location-search-status" class="location-help" role="status" aria-live="polite" aria-atomic="true">Enter an address, place, ZIP code, or latitude and longitude.</div>
+                <div id="location-results" class="location-results" aria-label="Location search results" hidden></div>
+                <output id="selected-location" class="selected-location">Renton, WA (47.49100, -122.21600)</output>
+                <div class="location-attribution">Location search © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></div>
               </div>
-            </div>
 
-            <!-- Dynamic Location Search -->
-            <div class="form-group location-picker">
-              <label class="form-label" for="input-location">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                  <circle cx="12" cy="10" r="3"></circle>
-                </svg>
-                System Location
-              </label>
-              <div class="location-search-row">
-                <input id="input-location" class="text-input" type="search" value="Renton, WA" autocomplete="street-address" placeholder="Address, city, ZIP, or lat, lon">
-                <button id="btn-search-location" class="btn btn-primary btn-sm" type="button">Search</button>
+              <!-- DC System Size (kW) -->
+              <div class="form-group">
+                <div class="form-label-row">
+                  <label class="form-label" for="slider-capacity">DC system size</label>
+                  <output id="badge-capacity" class="form-value-badge" for="slider-capacity num-capacity">4.0 kW</output>
+                </div>
+                <div class="slider-container">
+                  <input type="range" id="slider-capacity" class="slider-input" min="0.5" max="20" step="0.1" value="4.0" aria-label="DC system size in kilowatts">
+                  <input type="number" id="num-capacity" class="slider-num-input" min="0.05" max="500000" step="any" value="4.0" aria-label="Exact DC system size in kilowatts">
+                </div>
               </div>
-              <div id="location-search-status" class="location-help">Enter any address, place, ZIP code, or coordinates.</div>
-              <div id="location-results" class="location-results" role="listbox" aria-label="Location search results" hidden></div>
-              <div id="selected-location" class="selected-location">Renton, WA (47.49100, -122.21600)</div>
-              <div class="location-attribution">Location search © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></div>
-            </div>
 
-            <!-- DC System Size (kW) -->
-            <div class="form-group">
-              <div class="form-label-row">
-                <label class="form-label" for="slider-capacity">DC System Size</label>
-                <span id="badge-capacity" class="form-value-badge">4.0 kW</span>
+              <div class="quick-choice-grid">
+                <div class="form-group">
+                  <label class="form-label" for="select-module-type">Module type</label>
+                  <select id="select-module-type" class="select-input">
+                    <option value="0" selected>Standard</option>
+                    <option value="1">Premium</option>
+                    <option value="2">Thin film</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="select-array-type">Array type</label>
+                  <select id="select-array-type" class="select-input">
+                    <option value="0" selected>Fixed (open rack)</option>
+                    <option value="1">Fixed (roof mount)</option>
+                    <option value="2">1-axis tracking</option>
+                    <option value="3">1-axis backtracking</option>
+                    <option value="4">2-axis tracking</option>
+                  </select>
+                </div>
               </div>
-              <div class="slider-container">
-                <input type="range" id="slider-capacity" class="slider-input" min="0.5" max="20" step="0.1" value="4.0">
-                <input type="number" id="num-capacity" class="slider-num-input" min="0.05" max="500000" step="any" value="4.0">
+            </fieldset>
+
+            <section class="mobile-estimate-bridge" aria-labelledby="mobile-estimate-heading">
+              <div>
+                <h3 id="mobile-estimate-heading">Live annual estimate</h3>
+                <p id="mobile-estimate-status">Calculating with the current inputs…</p>
               </div>
-            </div>
+              <div class="mobile-estimate-value"><span id="mobile-kpi-ac">—</span> <span>kWh/year</span></div>
+              <a href="#results-heading">Review full results</a>
+            </section>
 
-            <!-- Module Type -->
-            <div class="form-group">
-              <label class="form-label" for="select-module-type">Module Type</label>
-              <select id="select-module-type" class="select-input">
-                <option value="0" selected>Standard</option>
-                <option value="1">Premium</option>
-                <option value="2">Thin Film</option>
-              </select>
-            </div>
-
-            <!-- Array Type -->
-            <div class="form-group">
-              <label class="form-label" for="select-array-type">Array Type</label>
-              <select id="select-array-type" class="select-input">
-                <option value="0" selected>Fixed (open rack)</option>
-                <option value="1">Fixed (roof mount)</option>
-                <option value="2">1-axis tracking</option>
-                <option value="3">1-axis backtracking</option>
-                <option value="4">2-axis tracking</option>
-              </select>
-            </div>
+            <fieldset class="parameter-group system-tuning-group">
+              <legend>Orientation &amp; losses</legend>
 
             <!-- System Losses (%) -->
             <div class="form-group">
               <div class="form-label-row">
-                <label class="form-label" for="slider-losses">System Losses</label>
-                <span id="badge-losses" class="form-value-badge">14.08 %</span>
+                <label class="form-label" for="slider-losses">System losses</label>
+                <output id="badge-losses" class="form-value-badge" for="slider-losses num-losses">14.08 %</output>
               </div>
               <div class="slider-container">
-                <input type="range" id="slider-losses" class="slider-input" min="0" max="40" step="0.01" value="14.08">
-                <input type="number" id="num-losses" class="slider-num-input" min="-5" max="99" step="any" value="14.08">
+                <input type="range" id="slider-losses" class="slider-input" min="0" max="40" step="0.01" value="14.08" aria-label="System losses percentage">
+                <input type="number" id="num-losses" class="slider-num-input" min="-5" max="99" step="any" value="14.08" aria-label="Exact system losses percentage">
               </div>
             </div>
 
             <!-- Array Tilt (deg) -->
             <div class="form-group">
               <div class="form-label-row">
-                <label class="form-label" for="slider-tilt">Array Tilt</label>
-                <span id="badge-tilt" class="form-value-badge">20 °</span>
+                <label class="form-label" for="slider-tilt">Array tilt</label>
+                <output id="badge-tilt" class="form-value-badge" for="slider-tilt num-tilt">20°</output>
               </div>
               <div class="slider-container">
-                <input type="range" id="slider-tilt" class="slider-input" min="0" max="90" step="0.1" value="20">
-                <input type="number" id="num-tilt" class="slider-num-input" min="0" max="90" step="any" value="20">
+                <input type="range" id="slider-tilt" class="slider-input" min="0" max="90" step="0.1" value="20" aria-label="Array tilt in degrees">
+                <input type="number" id="num-tilt" class="slider-num-input" min="0" max="90" step="any" value="20" aria-label="Exact array tilt in degrees">
               </div>
             </div>
 
             <!-- Array Azimuth (deg) -->
             <div class="form-group">
               <div class="form-label-row">
-                <label class="form-label" for="slider-azimuth">Array Azimuth</label>
-                <span id="badge-azimuth" class="form-value-badge">180 ° (South)</span>
+                <label class="form-label" for="slider-azimuth">Array azimuth</label>
+                <output id="badge-azimuth" class="form-value-badge" for="slider-azimuth num-azimuth">180° (South)</output>
               </div>
               <div class="slider-container">
-                <input type="range" id="slider-azimuth" class="slider-input" min="0" max="360" step="0.1" value="180">
-                <input type="number" id="num-azimuth" class="slider-num-input" min="0" max="360" step="any" value="180">
+                <input type="range" id="slider-azimuth" class="slider-input" min="0" max="360" step="0.1" value="180" aria-label="Array azimuth in degrees">
+                <input type="number" id="num-azimuth" class="slider-num-input" min="0" max="360" step="any" value="180" aria-label="Exact array azimuth in degrees">
               </div>
             </div>
 
@@ -198,7 +208,7 @@
                   <div id="compass-needle" class="compass-needle"></div>
                   <div class="compass-dot"></div>
                 </div>
-                <span id="compass-deg-label" style="font-size:0.75rem; font-family:monospace; color:var(--accent-solar);">180° S</span>
+                <output id="compass-deg-label" class="dial-value dial-value-solar">180° south</output>
               </div>
 
               <div class="dial-wrapper">
@@ -206,33 +216,37 @@
                 <div class="roof-pitch-box">
                   <div id="roof-line" class="roof-line"></div>
                 </div>
-                <span id="tilt-deg-label" style="font-size:0.75rem; font-family:monospace; color:var(--accent-info);">20° Tilt</span>
+                <output id="tilt-deg-label" class="dial-value dial-value-info">20° tilt</output>
               </div>
             </div>
+            </fieldset>
 
             <!-- Advanced Parameters Collapsible -->
             <details class="advanced-settings">
-              <summary>Advanced Settings</summary>
-              <p class="advanced-help">Official PVWatts v8 inputs. Decimal values are supported.</p>
+              <summary>Advanced model settings</summary>
+              <p class="advanced-help">Refine official PVWatts v8 inputs. The quick-estimate defaults are suitable for a first result.</p>
               <div class="advanced-fields">
                 <div>
-                  <label class="form-label" for="input-dc-ac-ratio">DC to AC Size Ratio</label>
-                  <input type="number" id="input-dc-ac-ratio" class="text-input" min="0.5" max="3.0" step="any" value="1.2">
+                  <label class="form-label" for="input-dc-ac-ratio">DC-to-AC size ratio</label>
+                  <input type="number" id="input-dc-ac-ratio" class="text-input" min="0.5" max="3.0" step="any" value="1.2" aria-describedby="dc-ac-ratio-help">
+                  <span id="dc-ac-ratio-help" class="field-help">Panel DC capacity divided by inverter AC capacity. Higher values can increase inverter clipping.</span>
                 </div>
                 <div>
-                  <label class="form-label" for="input-inv-eff">Inverter Efficiency (%)</label>
+                  <label class="form-label" for="input-inv-eff">Inverter efficiency (%)</label>
                   <input type="number" id="input-inv-eff" class="text-input" min="90" max="99.5" step="any" value="96.0">
                 </div>
                 <div>
-                  <label class="form-label" for="input-gcr">Ground Coverage Ratio</label>
-                  <input type="number" id="input-gcr" class="text-input" min="0.01" max="0.99" step="any" value="0.4">
+                  <label class="form-label" for="input-gcr">Ground coverage ratio</label>
+                  <input type="number" id="input-gcr" class="text-input" min="0.01" max="0.99" step="any" value="0.4" aria-describedby="gcr-help">
+                  <span id="gcr-help" class="field-help">The fraction of ground occupied by array rows; it affects row spacing and self-shading.</span>
                 </div>
                 <div>
                   <label class="form-label" for="select-albedo-mode">Albedo</label>
-                  <select id="select-albedo-mode" class="select-input">
+                  <select id="select-albedo-mode" class="select-input" aria-describedby="albedo-help">
                     <option value="weather" selected>From weather file</option>
                     <option value="custom">Custom value</option>
                   </select>
+                  <span id="albedo-help" class="field-help">The share of sunlight reflected by the ground; weather-file values are recommended for a first estimate.</span>
                 </div>
                 <div id="custom-albedo-field" hidden>
                   <label class="form-label" for="input-albedo">Custom Albedo (0–1)</label>
@@ -246,12 +260,12 @@
                   </select>
                 </div>
                 <div>
-                  <label class="form-label" for="input-bifaciality">Bifaciality Factor</label>
+                  <label class="form-label" for="input-bifaciality">Bifaciality factor</label>
                   <input type="number" id="input-bifaciality" class="text-input" min="0" max="1" step="any" value="0.7" disabled>
                   <span class="field-help">Rear-side/front-side efficiency ratio; typically 0.65–0.9.</span>
                 </div>
                 <fieldset class="monthly-loss-fieldset">
-                  <legend>Monthly Irradiance Loss (%)</legend>
+                  <legend>Monthly irradiance loss (%)</legend>
                   <span class="field-help">PVWatts API “soiling” loss, January through December.</span>
                   <div class="monthly-loss-grid">
                     <label>Jan <input type="number" class="text-input monthly-loss-input" data-month="0" min="0" max="100" step="any" value="0"></label>
@@ -271,12 +285,32 @@
               </div>
             </details>
 
-          </div>
+            <details class="api-access-settings">
+              <summary>API access <span>Optional</span></summary>
+              <div class="api-access-content">
+                <label class="form-label" for="input-api-key">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="7.5" cy="15.5" r="5.5"></circle>
+                    <path d="m21 2-9.6 9.6"></path>
+                    <path d="m15.5 7.5 2 2L20 7l-2-2"></path>
+                  </svg>
+                  Personal NLR API key
+                </label>
+                <input id="input-api-key" class="text-input" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="256" placeholder="Leave blank to use the server key" aria-describedby="api-key-help">
+                <p id="api-key-help" class="field-help">
+                  Most quick estimates work without a personal key. For 77-run comparisons, a free key helps avoid shared DEMO_KEY limits. It is sent only with PVWatts requests and is not stored or exported.
+                  <a href="https://developer.nlr.gov/" target="_blank" rel="noopener">Get a free key</a>.
+                </p>
+              </div>
+            </details>
+
+          </form>
         </aside>
 
         <!-- Right Column: Interactive Results & Visualizations -->
-        <section class="results-area">
-          <div id="simulation-status" class="simulation-status" role="status" aria-live="polite">
+        <section class="results-area" aria-labelledby="results-heading">
+          <h2 id="results-heading" class="sr-only">Calculated results</h2>
+          <div id="simulation-status" class="simulation-status" role="status" aria-live="polite" aria-atomic="true">
             Calculating with official PVWatts v8 and current NSRDB data…
           </div>
 
@@ -286,7 +320,7 @@
               <div class="kpi-label">Annual AC Energy</div>
               <div class="kpi-value-row">
                 <div class="kpi-value"><span id="kpi-ac-annual">—</span><span class="kpi-unit">kWh</span></div>
-                <button class="copy-output-btn" type="button" data-copy-target="kpi-ac-annual" aria-label="Copy annual AC energy" title="Copy annual AC energy">
+                <button class="copy-output-btn" type="button" data-copy-target="kpi-ac-annual" aria-label="Copy annual AC energy" title="Available after calculation" disabled>
                   <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="9" y="9" width="13" height="13" rx="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -294,14 +328,14 @@
                   <span class="sr-only">Copy annual AC energy</span>
                 </button>
               </div>
-              <div class="kpi-subtext">Estimated annual production</div>
+              <div class="kpi-subtext">Usable electricity delivered by the modeled system over one year.</div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-label">Solar Radiation</div>
               <div class="kpi-value-row">
                 <div class="kpi-value"><span id="kpi-solrad-annual">—</span><span class="kpi-unit">kWh/m²/d</span></div>
-                <button class="copy-output-btn" type="button" data-copy-target="kpi-solrad-annual" aria-label="Copy solar radiation" title="Copy solar radiation">
+                <button class="copy-output-btn" type="button" data-copy-target="kpi-solrad-annual" aria-label="Copy solar radiation" title="Available after calculation" disabled>
                   <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="9" y="9" width="13" height="13" rx="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -309,14 +343,14 @@
                   <span class="sr-only">Copy solar radiation</span>
                 </button>
               </div>
-              <div class="kpi-subtext">Annual daily average</div>
+              <div class="kpi-subtext">Average daily sunlight received by the array plane across the year.</div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-label">Capacity Factor</div>
               <div class="kpi-value-row">
                 <div class="kpi-value"><span id="kpi-capacity-factor">—</span><span class="kpi-unit">%</span></div>
-                <button class="copy-output-btn" type="button" data-copy-target="kpi-capacity-factor" aria-label="Copy capacity factor" title="Copy capacity factor">
+                <button class="copy-output-btn" type="button" data-copy-target="kpi-capacity-factor" aria-label="Copy capacity factor" title="Available after calculation" disabled>
                   <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="9" y="9" width="13" height="13" rx="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"></path>
@@ -324,14 +358,14 @@
                   <span class="sr-only">Copy capacity factor</span>
                 </button>
               </div>
-              <div class="kpi-subtext">AC output / 8,760h rated</div>
+              <div class="kpi-subtext">Actual annual AC output divided by continuous full-power output.</div>
             </div>
 
             <div class="kpi-card">
               <div class="kpi-label">Energy Yield</div>
               <div class="kpi-value-row">
                 <div class="kpi-value"><span id="kpi-yield">—</span><span class="kpi-unit">kWh/kW</span></div>
-                <button class="copy-output-btn" type="button" data-copy-target="kpi-yield" aria-label="Copy energy yield" title="Copy energy yield">
+                <button class="copy-output-btn" type="button" data-copy-target="kpi-yield" aria-label="Copy energy yield" title="Available after calculation" disabled>
                   <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="9" y="9" width="13" height="13" rx="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"></path>
@@ -339,7 +373,7 @@
                   <span class="sr-only">Copy energy yield</span>
                 </button>
               </div>
-              <div class="kpi-subtext">Annual kWh per kW nameplate</div>
+              <div class="kpi-subtext">Annual AC energy produced per kilowatt of installed DC capacity.</div>
             </div>
           </div>
 
@@ -347,38 +381,41 @@
           <div class="charts-grid">
             <div class="card">
               <div class="card-header">
-                <h3 class="card-title">Monthly AC Energy Output (kWh)</h3>
+                <h3 class="card-title">Monthly AC energy output</h3>
               </div>
               <div class="chart-container">
-                <canvas id="chart-monthly-ac"></canvas>
+                <canvas id="chart-monthly-ac" role="img" aria-label="Bar chart of monthly AC energy in kilowatt-hours" aria-describedby="monthly-table-caption">Monthly AC energy data is available in the performance table below.</canvas>
+                <p id="chart-monthly-ac-fallback" class="chart-fallback" hidden>Chart rendering is unavailable. Use the monthly performance table below.</p>
               </div>
             </div>
 
             <div class="card">
               <div class="card-header">
-                <h3 class="card-title">Monthly Solar Radiation (kWh/m²/day)</h3>
+                <h3 class="card-title">Monthly solar radiation</h3>
               </div>
               <div class="chart-container">
-                <canvas id="chart-monthly-solrad"></canvas>
+                <canvas id="chart-monthly-solrad" role="img" aria-label="Line chart of average daily monthly solar radiation in kilowatt-hours per square metre per day" aria-describedby="monthly-table-caption">Monthly solar radiation data is available in the performance table below.</canvas>
+                <p id="chart-monthly-solrad-fallback" class="chart-fallback" hidden>Chart rendering is unavailable. Use the monthly performance table below.</p>
               </div>
             </div>
           </div>
 
           <!-- Results Monthly Table -->
           <div class="card">
-            <div class="card-header">
-              <h3 class="card-title">Monthly Performance Breakdown</h3>
-              <span style="font-size: 0.8rem; color: var(--text-muted);" id="location-badge-label">Renton, WA · Official PVWatts v8 / NSRDB</span>
+            <div class="card-header results-table-header">
+              <h3 class="card-title">Monthly performance breakdown</h3>
+              <span class="location-badge-label" id="location-badge-label">Renton, WA · Official PVWatts v8 / NSRDB</span>
             </div>
             <div class="data-table-wrapper">
               <table class="data-table" id="table-monthly-results">
+                <caption id="monthly-table-caption" class="sr-only">Monthly solar radiation, plane-of-array irradiance, DC energy, and AC energy. This table is the accessible alternative to the monthly charts.</caption>
                 <thead>
                   <tr>
-                    <th>Month</th>
-                    <th>Solar Radiation (kWh/m²/day)</th>
-                    <th>Plane of Array (kWh/m²)</th>
-                    <th>DC Energy (kWh)</th>
-                    <th>AC Energy (kWh)</th>
+                    <th scope="col">Month</th>
+                    <th scope="col">Solar radiation (kWh/m²/day)</th>
+                    <th scope="col">Plane of array (kWh/m²)</th>
+                    <th scope="col">DC energy (kWh)</th>
+                    <th scope="col">AC energy (kWh)</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-monthly">
@@ -400,26 +437,77 @@
     <!-- ====================================================================
          TAB 2: PARAMETRIC STUDIO (Multi-Dimensional Sweeps & Heatmaps)
          ==================================================================== -->
-    <div id="parametric-tab" class="tab-content">
-      <div class="card" style="margin-bottom: 1.5rem;">
-        <div class="card-header">
-          <h2 class="card-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-              <polyline points="2 17 12 22 22 17"></polyline>
-              <polyline points="2 12 12 17 22 12"></polyline>
-            </svg>
-            2D Parametric Sweep: Tilt vs Azimuth Heatmap Matrix
-          </h2>
-          <button id="btn-run-sweep" class="btn btn-primary btn-sm">Compute Sweep Matrix</button>
+    <div id="parametric-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-parametric" tabindex="0" hidden>
+      <section class="card parametric-card" aria-labelledby="sweep-heading">
+        <div class="parametric-intro">
+          <div>
+            <h2 id="sweep-heading" class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+              Tilt &amp; azimuth comparison
+            </h2>
+            <p class="section-intro">Compare annual AC energy across 77 orientations while holding your current system assumptions constant.</p>
+          </div>
+          <span class="request-count">77 API requests</span>
         </div>
-        <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom: 1rem;">
-          Simulate 77 tilt/azimuth combinations with the official PVWatts v8 API for the currently selected location. A personal NLR API key is recommended for this batch study.
-        </p>
-        <div class="chart-container" style="height: 380px;">
-          <canvas id="chart-sweep"></canvas>
+
+        <div class="sweep-setup-grid">
+          <section class="sweep-assumptions" aria-labelledby="sweep-assumptions-heading">
+            <h3 id="sweep-assumptions-heading">Comparison baseline</h3>
+            <dl>
+              <div><dt>Location</dt><dd id="sweep-assumption-location">Renton, WA</dd></div>
+              <div><dt>System size</dt><dd id="sweep-assumption-size">4 kW DC</dd></div>
+              <div><dt>System losses</dt><dd id="sweep-assumption-losses">14.08%</dd></div>
+              <div><dt>Module / array</dt><dd id="sweep-assumption-hardware">Standard · Fixed (open rack)</dd></div>
+            </dl>
+            <p id="sweep-assumption-details">Advanced model settings are inherited from the current simulator inputs. Only tilt and azimuth vary.</p>
+          </section>
+
+          <section class="sweep-run-panel" aria-labelledby="sweep-run-heading">
+            <h3 id="sweep-run-heading">Quota checkpoint</h3>
+            <p>A personal NLR key is recommended. The sweep runs in 7-request batches so cancellation prevents unsent batches from consuming quota.</p>
+            <label class="quota-check">
+              <input id="sweep-quota-ack" type="checkbox">
+              <span>I understand this comparison can use up to 77 PVWatts API requests.</span>
+            </label>
+            <div class="sweep-actions">
+              <button id="btn-run-sweep" class="btn btn-primary" type="button" disabled aria-describedby="sweep-guard-help">Run 77 simulations</button>
+              <button id="btn-cancel-sweep" class="btn btn-outline" type="button" hidden>Cancel sweep</button>
+            </div>
+            <p id="sweep-guard-help" class="field-help">Acknowledge the request count to enable the sweep.</p>
+          </section>
         </div>
-      </div>
+
+        <div id="sweep-chart-container" class="chart-container sweep-chart-container" aria-busy="false">
+          <p id="sweep-empty" class="chart-empty">Run the comparison to reveal the best-performing orientations for this system.</p>
+          <canvas id="chart-sweep" role="img" aria-label="Line chart comparing annual AC energy by tilt and azimuth" aria-describedby="sweep-data-caption" hidden>All comparison values are available in the accessible data table below.</canvas>
+          <div id="sweep-loading" class="sweep-loading" role="status" aria-live="polite" aria-atomic="true" hidden>
+            <div class="sweep-spinner" aria-hidden="true"><span></span></div>
+            <div class="sweep-loading-copy">
+              <strong id="sweep-status">Preparing parametric sweep…</strong>
+              <span id="sweep-status-detail">Creating 77 tilt and azimuth combinations.</span>
+            </div>
+            <div class="sweep-progress-row">
+              <progress id="sweep-progress" max="77" value="0">0 of 77</progress>
+              <span id="sweep-progress-label">0 / 77</span>
+            </div>
+          </div>
+        </div>
+
+        <details id="sweep-data-panel" class="sweep-data-panel" hidden>
+          <summary>View accessible comparison data</summary>
+          <div class="data-table-wrapper">
+            <table class="data-table sweep-data-table">
+              <caption id="sweep-data-caption">Annual AC energy in kilowatt-hours for each azimuth and tilt combination.</caption>
+              <thead id="sweep-table-head"></thead>
+              <tbody id="sweep-table-body"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
     </div>
 
   </main>
@@ -435,7 +523,7 @@
   </footer>
 
   <!-- Toast Notification Area -->
-  <div id="toast-container" class="toast-container"></div>
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true" aria-relevant="additions"></div>
 
   <script src="app.js"></script>
 </body>

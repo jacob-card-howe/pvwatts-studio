@@ -119,18 +119,30 @@ class PVWattsHTTPHandler(http.server.SimpleHTTPRequestHandler):
         return {"results": results}
 
     def _run_json_endpoint(self, callback: Any) -> None:
+        status = 200
         try:
-            self.send_json_response(callback())
+            response = callback()
         except ValueError as exc:
-            self.send_json_response({"error": str(exc), "code": "invalid_parameters"}, status=400)
+            response = {"error": str(exc), "code": "invalid_parameters"}
+            status = 400
         except ExternalServiceError as exc:
-            self.send_json_response({"error": str(exc), "code": exc.code}, status=exc.status)
+            response = {"error": str(exc), "code": exc.code}
+            status = exc.status
         except Exception as exc:  # Keep API failures JSON-shaped for the browser.
             self.log_error("Unhandled API error: %s", exc)
-            self.send_json_response(
-                {"error": "The local server could not complete the request", "code": "internal_error"},
-                status=500,
-            )
+            response = {
+                "error": "The local server could not complete the request",
+                "code": "internal_error",
+            }
+            status = 500
+
+        try:
+            self.send_json_response(response, status=status)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            # The browser deliberately aborts superseded live simulations. The
+            # calculation may finish after that socket closes; do not turn this
+            # expected disconnect into a second attempted response and traceback.
+            return
 
     def get_stations(self) -> list[dict[str, Any]]:
         catalog_path = os.path.join(STATIC_DIR, "data", "catalog.json")

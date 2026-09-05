@@ -60,7 +60,7 @@ class TestStaticUI(unittest.TestCase):
                 self.assertIn(hex_value, self.javascript)
 
         self.assertIn("const PARAMETRIC_COLORS = Object.freeze([", self.javascript)
-        self.assertIn("const colorList = PARAMETRIC_COLORS;", self.javascript)
+        self.assertIn("PARAMETRIC_COLORS[azimuthIndex % PARAMETRIC_COLORS.length]", self.javascript)
         self.assertIn("#parametric-tab > .card::before", self.styles)
 
     def test_continuous_number_inputs_accept_arbitrary_decimals(self):
@@ -92,12 +92,13 @@ class TestStaticUI(unittest.TestCase):
         self.assertEqual({attributes["data-month"] for attributes in monthly}, {str(i) for i in range(12)})
         self.assertTrue(all(attributes.get("step") == "any" for attributes in monthly))
 
-    def test_api_key_input_precedes_location_and_is_not_persisted(self):
+    def test_api_key_is_demoted_after_quick_estimate_and_is_not_persisted(self):
         tag, attributes = self.parser.elements_by_id["input-api-key"]
         self.assertEqual(tag, "input")
         self.assertEqual(attributes["type"], "password")
         self.assertEqual(attributes["autocomplete"], "off")
-        self.assertLess(self.html.index('id="input-api-key"'), self.html.index('id="input-location"'))
+        self.assertGreater(self.html.index('id="input-api-key"'), self.html.index('id="input-location"'))
+        self.assertIn('class="api-access-settings"', self.html)
         self.assertIn("headers['X-NLR-API-Key'] = apiKey", self.javascript)
         self.assertNotIn("localStorage", self.javascript)
         self.assertNotIn("sessionStorage", self.javascript)
@@ -126,7 +127,7 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("data: values", self.javascript)
         self.assertNotIn("chartMonthlySolrad.data.datasets[0].data = res.monthlySolrad", self.javascript)
 
-    def test_calculated_kpis_have_copy_buttons(self):
+    def test_calculated_kpis_have_disabled_copy_buttons_until_results_exist(self):
         output_ids = (
             "kpi-ac-annual",
             "kpi-solrad-annual",
@@ -136,9 +137,94 @@ class TestStaticUI(unittest.TestCase):
         self.assertEqual(self.html.count('class="copy-output-btn"'), len(output_ids))
         for output_id in output_ids:
             with self.subTest(output_id=output_id):
-                self.assertIn(f'data-copy-target="{output_id}"', self.html)
+                self.assertRegex(
+                    self.html,
+                    rf'class="copy-output-btn"[^>]+data-copy-target="{output_id}"[^>]+disabled',
+                )
+        for export_id in ("btn-export-json", "btn-export-csv"):
+            tag, attributes = self.parser.elements_by_id[export_id]
+            self.assertEqual(tag, "button")
+            self.assertIn("disabled", attributes)
         self.assertIn("navigator.clipboard?.writeText", self.javascript)
-        self.assertIn("function writeClipboardText(text)", self.javascript)
+        self.assertIn("function setResultActionsEnabled(enabled)", self.javascript)
+
+    def test_parametric_sweep_is_batched_cancellable_and_accessible(self):
+        container_tag, container = self.parser.elements_by_id["sweep-chart-container"]
+        loading_tag, loading = self.parser.elements_by_id["sweep-loading"]
+        progress_tag, progress = self.parser.elements_by_id["sweep-progress"]
+        run_tag, run_button = self.parser.elements_by_id["btn-run-sweep"]
+        cancel_tag, cancel_button = self.parser.elements_by_id["btn-cancel-sweep"]
+
+        self.assertEqual(container_tag, "div")
+        self.assertEqual(container["aria-busy"], "false")
+        self.assertEqual(loading_tag, "div")
+        self.assertEqual(loading["role"], "status")
+        self.assertEqual(loading["aria-live"], "polite")
+        self.assertIn("hidden", loading)
+        self.assertEqual(progress_tag, "progress")
+        self.assertEqual(progress["max"], "77")
+        self.assertEqual(run_tag, "button")
+        self.assertIn("disabled", run_button)
+        self.assertEqual(cancel_tag, "button")
+        self.assertIn("hidden", cancel_button)
+        self.assertIn("const SWEEP_CHUNK_SIZE = 7", self.javascript)
+        self.assertIn("sweepController.abort()", self.javascript)
+        self.assertIn("requests.slice(offset, offset + SWEEP_CHUNK_SIZE)", self.javascript)
+        self.assertIn("const batchResults = await simulateBatch(batch, shared, sweepController.signal)", self.javascript)
+        self.assertIn("function renderSweepTable(", self.javascript)
+        self.assertIn('id="sweep-data-caption"', self.html)
+        self.assertIn(".sweep-spinner", self.styles)
+
+    def test_sweep_inherits_current_size_and_losses_without_hidden_overrides(self):
+        self.assertIn("systemCapacityKw: currentParams.systemCapacityKw", self.javascript)
+        self.assertIn("losses: currentParams.losses", self.javascript)
+        self.assertNotIn("systemCapacityKw: 6", self.javascript)
+        self.assertNotIn("losses: 11", self.javascript)
+        self.assertIn('id="sweep-assumption-size"', self.html)
+        self.assertIn('id="sweep-assumption-losses"', self.html)
+
+    def test_csv_columns_match_the_visible_monthly_table(self):
+        expected_headers = (
+            "'Month'",
+            "'Solar radiation (kWh/m²/day)'",
+            "'Plane of array (kWh/m²)'",
+            "'DC energy (kWh)'",
+            "'AC energy (kWh)'",
+        )
+        self.assertIn("function createMonthlyCsv(res)", self.javascript)
+        for header in expected_headers:
+            self.assertIn(header, self.javascript)
+        self.assertIn("monthlyPoa[month]", self.javascript)
+        self.assertIn("res.monthlyDc[month]", self.javascript)
+        self.assertIn("res.monthlyAc[month]", self.javascript)
+        csv_function = self.javascript.split("function createMonthlyCsv(res)", 1)[1].split("// Export CSV", 1)[0]
+        self.assertNotIn("kwhPerKw", csv_function)
+
+    def test_workspace_tabs_expose_keyboard_and_selected_state(self):
+        simulator_tag, simulator = self.parser.elements_by_id["tab-simulator"]
+        parametric_tag, parametric = self.parser.elements_by_id["tab-parametric"]
+        self.assertEqual(simulator_tag, "button")
+        self.assertEqual(simulator["role"], "tab")
+        self.assertEqual(simulator["aria-selected"], "true")
+        self.assertEqual(parametric_tag, "button")
+        self.assertEqual(parametric["role"], "tab")
+        self.assertEqual(parametric["aria-selected"], "false")
+        self.assertIn("event.key === 'ArrowRight'", self.javascript)
+        self.assertIn("candidate.setAttribute('aria-selected'", self.javascript)
+
+    def test_mobile_workflow_keeps_a_live_result_bridge_after_quick_inputs(self):
+        self.assertIn('class="parameter-group quick-estimate-group"', self.html)
+        self.assertIn('class="mobile-estimate-bridge"', self.html)
+        self.assertLess(self.html.index('id="input-location"'), self.html.index('id="mobile-kpi-ac"'))
+        self.assertLess(self.html.index('id="mobile-kpi-ac"'), self.html.index('id="slider-losses"'))
+        self.assertIn("@media (max-width: 760px)", self.styles)
+        self.assertIn("min-height: 44px", self.styles)
+
+    def test_failed_recalculation_clears_stale_outputs(self):
+        self.assertIn("function clearDisplayedResults()", self.javascript)
+        self.assertIn("resultsArea.classList.add('is-updating')", self.javascript)
+        self.assertGreaterEqual(self.javascript.count("clearDisplayedResults();"), 2)
+        self.assertIn(".results-area.is-updating", self.styles)
 
 
 if __name__ == "__main__":

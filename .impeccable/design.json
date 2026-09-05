@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-05T02:36:35.191Z",
+  "title": "Design System: PVWatts Studio",
+  "extensions": {
+    "colorMeta": {
+      "brand-blue": {
+        "role": "primary",
+        "displayName": "Instrument Blue",
+        "canonical": "#1257D1",
+        "tonalRamp": ["color-mix(in oklch, #1257D1 30%, black)", "color-mix(in oklch, #1257D1 45%, black)", "color-mix(in oklch, #1257D1 70%, black)", "#1257D1", "color-mix(in oklch, #1257D1 85%, white)", "color-mix(in oklch, #1257D1 65%, white)", "color-mix(in oklch, #1257D1 40%, white)", "color-mix(in oklch, #1257D1 18%, white)"]
+      },
+      "panel-black": {
+        "role": "neutral",
+        "displayName": "Panel Black",
+        "canonical": "#000000",
+        "tonalRamp": ["#000000", "#111820", "#27313A", "#3E4852", "#59636C", "#78818A", "#AAB1B7", "#E6E9EB"]
+      },
+      "deep-panel-blue": {
+        "role": "primary",
+        "displayName": "Deep Panel Blue",
+        "canonical": "#00396E",
+        "tonalRamp": ["color-mix(in oklch, #00396E 30%, black)", "color-mix(in oklch, #00396E 45%, black)", "color-mix(in oklch, #00396E 70%, black)", "#00396E", "color-mix(in oklch, #00396E 85%, white)", "color-mix(in oklch, #00396E 65%, white)", "color-mix(in oklch, #00396E 40%, white)", "color-mix(in oklch, #00396E 18%, white)"]
+      },
+      "console-navy": {
+        "role": "neutral",
+        "displayName": "Console Navy",
+        "canonical": "#001C36",
+        "tonalRamp": ["color-mix(in oklch, #001C36 30%, black)", "color-mix(in oklch, #001C36 45%, black)", "color-mix(in oklch, #001C36 70%, black)", "#001C36", "color-mix(in oklch, #001C36 85%, white)", "color-mix(in oklch, #001C36 65%, white)", "color-mix(in oklch, #001C36 40%, white)", "color-mix(in oklch, #001C36 18%, white)"]
+      },
+      "input-well": {
+        "role": "neutral",
+        "displayName": "Input Well",
+        "canonical": "#071A2B",
+        "tonalRamp": ["color-mix(in oklch, #071A2B 30%, black)", "color-mix(in oklch, #071A2B 45%, black)", "color-mix(in oklch, #071A2B 70%, black)", "#071A2B", "color-mix(in oklch, #071A2B 85%, white)", "color-mix(in oklch, #071A2B 65%, white)", "color-mix(in oklch, #071A2B 40%, white)", "color-mix(in oklch, #071A2B 18%, white)"]
+      },
+      "light-readout-blue": {
+        "role": "secondary",
+        "displayName": "Light Readout Blue",
+        "canonical": "#5ADBFF",
+        "tonalRamp": ["color-mix(in oklch, #5ADBFF 30%, black)", "color-mix(in oklch, #5ADBFF 45%, black)", "color-mix(in oklch, #5ADBFF 70%, black)", "#5ADBFF", "color-mix(in oklch, #5ADBFF 85%, white)", "color-mix(in oklch, #5ADBFF 65%, white)", "color-mix(in oklch, #5ADBFF 40%, white)", "color-mix(in oklch, #5ADBFF 18%, white)"]
+      },
+      "signal-cyan": {
+        "role": "secondary",
+        "displayName": "Signal Cyan",
+        "canonical": "#00B5F1",
+        "tonalRamp": ["color-mix(in oklch, #00B5F1 30%, black)", "color-mix(in oklch, #00B5F1 45%, black)", "color-mix(in oklch, #00B5F1 70%, black)", "#00B5F1", "color-mix(in oklch, #00B5F1 85%, white)", "color-mix(in oklch, #00B5F1 65%, white)", "color-mix(in oklch, #00B5F1 40%, white)", "color-mix(in oklch, #00B5F1 18%, white)"]
+      },
+      "instrument-aqua": {
+        "role": "secondary",
+        "displayName": "Instrument Aqua",
+        "canonical": "#62DAFC",
+        "tonalRamp": ["color-mix(in oklch, #62DAFC 30%, black)", "color-mix(in oklch, #62DAFC 45%, black)", "color-mix(in oklch, #62DAFC 70%, black)", "#62DAFC", "color-mix(in oklch, #62DAFC 85%, white)", "color-mix(in oklch, #62DAFC 65%, white)", "color-mix(in oklch, #62DAFC 40%, white)", "color-mix(in oklch, #62DAFC 18%, white)"]
+      },
+      "solar-yellow": {
+        "role": "tertiary",
+        "displayName": "Solar Charge",
+        "canonical": "#FFD140",
+        "tonalRamp": ["color-mix(in oklch, #FFD140 30%, black)", "color-mix(in oklch, #FFD140 45%, black)", "color-mix(in oklch, #FFD140 70%, black)", "#FFD140", "color-mix(in oklch, #FFD140 85%, white)", "color-mix(in oklch, #FFD140 65%, white)", "color-mix(in oklch, #FFD140 40%, white)", "color-mix(in oklch, #FFD140 18%, white)"]
+      },
+      "success-green": {
+        "role": "tertiary",
+        "displayName": "Valid Green",
+        "canonical": "#3BD5AE",
+        "tonalRamp": ["color-mix(in oklch, #3BD5AE 30%, black)", "color-mix(in oklch, #3BD5AE 45%, black)", "color-mix(in oklch, #3BD5AE 70%, black)", "#3BD5AE", "color-mix(in oklch, #3BD5AE 85%, white)", "color-mix(in oklch, #3BD5AE 65%, white)", "color-mix(in oklch, #3BD5AE 40%, white)", "color-mix(in oklch, #3BD5AE 18%, white)"]
+      },
+      "fault-orange": {
+        "role": "tertiary",
+        "displayName": "Fault Orange",
+        "canonical": "#FB471F",
+        "tonalRamp": ["color-mix(in oklch, #FB471F 30%, black)", "color-mix(in oklch, #FB471F 45%, black)", "color-mix(in oklch, #FB471F 70%, black)", "#FB471F", "color-mix(in oklch, #FB471F 85%, white)", "color-mix(in oklch, #FB471F 65%, white)", "color-mix(in oklch, #FB471F 40%, white)", "color-mix(in oklch, #FB471F 18%, white)"]
+      },
+      "analysis-fern": {
+        "role": "tertiary",
+        "displayName": "Analysis Fern",
+        "canonical": "#027669",
+        "tonalRamp": ["color-mix(in oklch, #027669 30%, black)", "color-mix(in oklch, #027669 45%, black)", "color-mix(in oklch, #027669 70%, black)", "#027669", "color-mix(in oklch, #027669 85%, white)", "color-mix(in oklch, #027669 65%, white)", "color-mix(in oklch, #027669 40%, white)", "color-mix(in oklch, #027669 18%, white)"]
+      },
+      "analysis-river": {
+        "role": "secondary",
+        "displayName": "Analysis River",
+        "canonical": "#4295A9",
+        "tonalRamp": ["color-mix(in oklch, #4295A9 30%, black)", "color-mix(in oklch, #4295A9 45%, black)", "color-mix(in oklch, #4295A9 70%, black)", "#4295A9", "color-mix(in oklch, #4295A9 85%, white)", "color-mix(in oklch, #4295A9 65%, white)", "color-mix(in oklch, #4295A9 40%, white)", "color-mix(in oklch, #4295A9 18%, white)"]
+      },
+      "analysis-gold": {
+        "role": "tertiary",
+        "displayName": "Analysis Gold",
+        "canonical": "#D0AF22",
+        "tonalRamp": ["color-mix(in oklch, #D0AF22 30%, black)", "color-mix(in oklch, #D0AF22 45%, black)", "color-mix(in oklch, #D0AF22 70%, black)", "#D0AF22", "color-mix(in oklch, #D0AF22 85%, white)", "color-mix(in oklch, #D0AF22 65%, white)", "color-mix(in oklch, #D0AF22 40%, white)", "color-mix(in oklch, #D0AF22 18%, white)"]
+      },
+      "analysis-maroon": {
+        "role": "tertiary",
+        "displayName": "Analysis Maroon",
+        "canonical": "#9E3124",
+        "tonalRamp": ["color-mix(in oklch, #9E3124 30%, black)", "color-mix(in oklch, #9E3124 45%, black)", "color-mix(in oklch, #9E3124 70%, black)", "#9E3124", "color-mix(in oklch, #9E3124 85%, white)", "color-mix(in oklch, #9E3124 65%, white)", "color-mix(in oklch, #9E3124 40%, white)", "color-mix(in oklch, #9E3124 18%, white)"]
+      },
+      "hardware-gray": {
+        "role": "neutral",
+        "displayName": "Hardware Gray",
+        "canonical": "#878A8F",
+        "tonalRamp": ["color-mix(in oklch, #878A8F 30%, black)", "color-mix(in oklch, #878A8F 45%, black)", "color-mix(in oklch, #878A8F 70%, black)", "#878A8F", "color-mix(in oklch, #878A8F 85%, white)", "color-mix(in oklch, #878A8F 65%, white)", "color-mix(in oklch, #878A8F 40%, white)", "color-mix(in oklch, #878A8F 18%, white)"]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Instrument White",
+        "canonical": "#F7FBFF",
+        "tonalRamp": ["#17202A", "#2F3944", "#4A5661", "#67737E", "#87919B", "#ABB3BA", "#D4D9DE", "#F7FBFF"]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "Secondary Readout",
+        "canonical": "#B8C7D5",
+        "tonalRamp": ["color-mix(in oklch, #B8C7D5 30%, black)", "color-mix(in oklch, #B8C7D5 45%, black)", "color-mix(in oklch, #B8C7D5 70%, black)", "#B8C7D5", "color-mix(in oklch, #B8C7D5 85%, white)", "color-mix(in oklch, #B8C7D5 65%, white)", "color-mix(in oklch, #B8C7D5 40%, white)", "color-mix(in oklch, #B8C7D5 18%, white)"]
+      },
+      "card-surface": {
+        "role": "neutral",
+        "displayName": "Calibrated Card Layer",
+        "canonical": "rgba(0, 57, 110, 0.3)",
+        "tonalRamp": ["rgba(0, 18, 36, 0.3)", "rgba(0, 30, 58, 0.3)", "rgba(0, 45, 86, 0.3)", "rgba(0, 57, 110, 0.3)", "rgba(30, 82, 132, 0.3)", "rgba(78, 118, 158, 0.3)", "rgba(143, 169, 195, 0.3)", "rgba(211, 223, 235, 0.3)"]
+      },
+      "card-hover": {
+        "role": "primary",
+        "displayName": "Active Card Layer",
+        "canonical": "rgba(18, 87, 209, 0.28)",
+        "tonalRamp": ["rgba(5, 25, 63, 0.28)", "rgba(8, 39, 94, 0.28)", "rgba(13, 61, 146, 0.28)", "rgba(18, 87, 209, 0.28)", "rgba(58, 116, 216, 0.28)", "rgba(106, 151, 226, 0.28)", "rgba(166, 190, 239, 0.28)", "rgba(221, 231, 249, 0.28)"]
+      },
+      "border-cyan": {
+        "role": "secondary",
+        "displayName": "Structural Cyan",
+        "canonical": "rgba(90, 219, 255, 0.34)",
+        "tonalRamp": ["rgba(22, 55, 64, 0.34)", "rgba(36, 88, 102, 0.34)", "rgba(61, 149, 173, 0.34)", "rgba(90, 219, 255, 0.34)", "rgba(119, 226, 255, 0.34)", "rgba(156, 234, 255, 0.34)", "rgba(199, 243, 255, 0.34)", "rgba(235, 251, 255, 0.34)"]
+      },
+      "border-subtle": {
+        "role": "neutral",
+        "displayName": "Quiet Structural Cyan",
+        "canonical": "rgba(90, 219, 255, 0.16)",
+        "tonalRamp": ["rgba(22, 55, 64, 0.16)", "rgba(36, 88, 102, 0.16)", "rgba(61, 149, 173, 0.16)", "rgba(90, 219, 255, 0.16)", "rgba(119, 226, 255, 0.16)", "rgba(156, 234, 255, 0.16)", "rgba(199, 243, 255, 0.16)", "rgba(235, 251, 255, 0.16)"]
+      }
+    },
+    "typographyMeta": {
+      "headline-data": { "displayName": "Headline Data", "purpose": "Large KPI outcomes and the strongest measured results." },
+      "title": { "displayName": "Instrument Title", "purpose": "Card, panel, and chart headings." },
+      "body": { "displayName": "Interface Body", "purpose": "Explanations, controls, and supporting copy." },
+      "label": { "displayName": "Scan Label", "purpose": "Compact categories, table headers, and KPI metadata." },
+      "measurement": { "displayName": "Measurement", "purpose": "Units, coordinates, control values, and tabular data." }
+    },
+    "shadows": [
+      { "name": "surface-low", "value": "0 1px 2px 0 rgba(0, 0, 0, 0.05)", "purpose": "Quiet separation for small controls where a border is insufficient." },
+      { "name": "instrument-panel", "value": "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)", "purpose": "Default card and panel depth." },
+      { "name": "raised-overlay", "value": "0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.25)", "purpose": "Location results, toasts, and temporary overlays." },
+      { "name": "solar-signal", "value": "0 0 20px -5px rgba(255, 209, 64, 0.25)", "purpose": "Decorative energy emphasis only; not structural elevation." }
+    ],
+    "motion": [
+      { "name": "state-fast", "value": "150ms ease", "purpose": "Buttons, fields, sliders, and navigation state changes." },
+      { "name": "surface-standard", "value": "200ms ease", "purpose": "Card-border and copy-action refinement." },
+      { "name": "sweep-progress", "value": "250ms ease", "purpose": "Measured progress-bar width updates." },
+      { "name": "loading-spin", "value": "1s linear infinite", "purpose": "Parametric sweep activity only; disabled by reduced-motion preference." }
+    ],
+    "breakpoints": [
+      { "name": "chart-stack", "value": "900px" },
+      { "name": "workspace-stack", "value": "1080px" },
+      { "name": "container-max", "value": "1440px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The confident action control for search, computation, and other primary operations.",
+      "html": "<button class=\"ds-button-primary\">Compute sweep matrix</button>",
+      "css": ".ds-button-primary { display:inline-flex; align-items:center; justify-content:center; padding:.5rem 1rem; border:1px solid transparent; border-radius:var(--radius-md,10px); background:linear-gradient(135deg,var(--uml-blue,#1257D1),var(--uml-dark-blue,#00396E)); color:#fff; font:600 .85rem/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; cursor:pointer; transition:filter .15s ease,transform .15s ease,box-shadow .15s ease; } .ds-button-primary:hover { filter:brightness(1.1); transform:translateY(-1px); } .ds-button-primary:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(18,87,209,.35); } .ds-button-primary:active { transform:translateY(0); } .ds-button-primary:disabled { cursor:wait; opacity:.72; transform:none; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "A secondary action that remains visible without competing with the primary control.",
+      "html": "<button class=\"ds-button-outline\">Export CSV</button>",
+      "css": ".ds-button-outline { display:inline-flex; align-items:center; justify-content:center; padding:.5rem 1rem; border:1px solid rgba(90,219,255,.34); border-radius:var(--radius-md,10px); background:rgba(0,57,110,.5); color:#F7FBFF; font:600 .85rem/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; cursor:pointer; transition:background .15s ease,border-color .15s ease,transform .15s ease; } .ds-button-outline:hover { border-color:#B8C7D5; background:rgba(18,87,209,.28); transform:translateY(-1px); } .ds-button-outline:focus-visible { outline:none; border-color:#00B5F1; box-shadow:0 0 0 3px rgba(0,181,241,.25); } .ds-button-outline:active { transform:translateY(0); }"
+    },
+    {
+      "name": "Instrument Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A recessed entry well for locations, API keys, and advanced numeric values.",
+      "html": "<label class=\"ds-field\"><span>System location</span><input value=\"Renton, WA\" aria-label=\"System location\"></label>",
+      "css": ".ds-field { display:grid; gap:.4rem; color:#B8C7D5; font:600 .825rem/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; } .ds-field input { width:100%; padding:.55rem .75rem; border:1px solid rgba(90,219,255,.34); border-radius:var(--radius-md,10px); outline:none; background:#071A2B; color:#F7FBFF; font:400 .875rem/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; transition:border-color .15s ease,box-shadow .15s ease; } .ds-field input:focus { border-color:#1257D1; box-shadow:0 0 0 2px rgba(18,87,209,.35); } .ds-field input:disabled { cursor:not-allowed; opacity:.5; }"
+    },
+    {
+      "name": "Simulator Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "A compact mode switch that keeps the active workspace unmistakable.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Workspace\"><button aria-current=\"page\">System Simulator</button><button>Parametric Studio</button></nav>",
+      "css": ".ds-nav { display:inline-flex; gap:.5rem; padding:.25rem; border:1px solid rgba(90,219,255,.16); border-radius:var(--radius-md,10px); background:rgba(0,57,110,.34); } .ds-nav button { display:inline-flex; align-items:center; padding:.45rem 1rem; border:0; border-radius:var(--radius-sm,6px); background:transparent; color:#B8C7D5; font:600 .875rem/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; cursor:pointer; transition:background .15s ease,color .15s ease,box-shadow .15s ease; } .ds-nav button:hover { background:rgba(90,219,255,.09); color:#F7FBFF; } .ds-nav button[aria-current=page] { background:#1257D1; color:#fff; box-shadow:0 0 12px rgba(18,87,209,.35); } .ds-nav button:focus-visible { outline:none; box-shadow:0 0 0 2px rgba(0,181,241,.35); }"
+    },
+    {
+      "name": "Instrument Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The standard layered enclosure for controls, charts, and detailed data.",
+      "html": "<section class=\"ds-card\"><h3>Monthly AC energy output</h3><p>Calculated with official PVWatts v8 and current NSRDB data.</p></section>",
+      "css": ".ds-card { max-width:28rem; padding:1.25rem; border:1px solid rgba(90,219,255,.16); border-radius:var(--radius-lg,16px); background:rgba(0,57,110,.3); color:#F7FBFF; box-shadow:0 4px 6px -1px rgba(0,0,0,.3),0 2px 4px -1px rgba(0,0,0,.2); backdrop-filter:blur(16px); transition:border-color .2s ease; } .ds-card:hover { border-color:rgba(90,219,255,.42); } .ds-card h3 { margin:0 0 .65rem; font:700 1.05rem/1.35 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; } .ds-card p { margin:0; color:#B8C7D5; font:400 .875rem/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; } .ds-card:focus-within { border-color:#00B5F1; box-shadow:0 4px 6px -1px rgba(0,0,0,.3),0 0 0 2px rgba(0,181,241,.2); }"
+    },
+    {
+      "name": "KPI Readout",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "A calibrated headline result with a semantic energy rail and attached unit.",
+      "html": "<section class=\"ds-kpi\"><span class=\"ds-kpi-label\">Annual AC energy</span><strong>5,240 <small>kWh</small></strong><span class=\"ds-kpi-note\">Estimated annual production</span></section>",
+      "css": ".ds-kpi { position:relative; overflow:hidden; min-width:14rem; padding:1.15rem; border:1px solid rgba(90,219,255,.16); border-radius:var(--radius-lg,16px); background:rgba(0,57,110,.3); color:#F7FBFF; } .ds-kpi::before { position:absolute; inset:0 0 auto; height:3px; background:linear-gradient(90deg,#FFD140,#00B5F1); content:\"\"; } .ds-kpi-label,.ds-kpi-note { display:block; font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; } .ds-kpi-label { margin-bottom:.35rem; color:#B8C7D5; font-size:.775rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; } .ds-kpi strong { display:block; font:800 1.85rem/1.1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-variant-numeric:tabular-nums; } .ds-kpi strong small { margin-left:.25rem; color:#878A8F; font-size:.85rem; } .ds-kpi-note { margin-top:.35rem; color:#3BD5AE; font-size:.75rem; } .ds-kpi:focus-within { border-color:#00B5F1; }"
+    },
+    {
+      "name": "Solar Value Badge",
+      "kind": "chip",
+      "refersTo": "solar-value-badge",
+      "description": "A compact measured-value marker tied specifically to solar and energy controls.",
+      "html": "<output class=\"ds-solar-badge\">14.08 %</output>",
+      "css": ".ds-solar-badge { display:inline-flex; align-items:center; padding:.15rem .5rem; border:1px solid rgba(255,209,64,.25); border-radius:var(--radius-sm,6px); background:rgba(255,209,64,.1); color:#FFD140; font:700 .825rem/1.4 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-variant-numeric:tabular-nums; transition:background .15s ease,border-color .15s ease,box-shadow .15s ease; } .ds-solar-badge:hover { border-color:rgba(255,209,64,.5); background:rgba(255,209,64,.15); } .ds-solar-badge:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(255,209,64,.18); }"
+    },
+    {
+      "name": "Calculation Status",
+      "kind": "custom",
+      "refersTo": "status-success",
+      "description": "A live model-state readout whose semantic color distinguishes information, success, and failure.",
+      "html": "<div class=\"ds-status\" data-state=\"success\" role=\"status\">Official PVWatts v8 · NSRDB grid 47.50, −122.20</div>",
+      "css": ".ds-status { min-height:2.25rem; padding:.55rem .8rem; border:1px solid rgba(0,181,241,.38); border-radius:var(--radius-md,10px); background:rgba(0,181,241,.09); color:#5ADBFF; font:400 .8rem/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; } .ds-status[data-state=success] { border-color:rgba(59,213,174,.4); background:rgba(59,213,174,.09); color:#3BD5AE; } .ds-status[data-state=error] { border-color:rgba(251,71,31,.55); background:rgba(158,49,36,.22); color:#FB471F; } .ds-status:focus-visible { outline:none; box-shadow:0 0 0 2px rgba(0,181,241,.25); }"
+    },
+    {
+      "name": "Compass Readout",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "A signature physical metaphor that links azimuth input to an immediately readable orientation.",
+      "html": "<figure class=\"ds-compass\"><figcaption>Compass azimuth</figcaption><div class=\"ds-compass-face\"><span></span></div><output>180° S</output></figure>",
+      "css": ".ds-compass { display:inline-flex; flex-direction:column; align-items:center; gap:.35rem; margin:0; padding:.75rem 1rem; border:1px solid rgba(90,219,255,.16); border-radius:var(--radius-md,10px); background:rgba(0,0,0,.35); } .ds-compass figcaption { color:#878A8F; font:600 .725rem/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; text-transform:uppercase; } .ds-compass-face { position:relative; display:grid; width:64px; height:64px; place-items:center; border:2px dashed rgba(90,219,255,.34); border-radius:50%; background:#001C36; } .ds-compass-face::before { position:absolute; bottom:50%; width:3px; height:26px; border-radius:2px; background:linear-gradient(to top,#00B5F1,#FFD140); box-shadow:0 0 6px #FFD140; content:\"\"; transform:rotate(180deg); transform-origin:bottom center; } .ds-compass-face span { z-index:1; width:8px; height:8px; border-radius:50%; background:#F7FBFF; } .ds-compass output { color:#FFD140; font:700 .75rem/1.2 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Solar Instrument Panel",
+    "overview": "PVWatts Studio should feel like calibrated solar test equipment translated into a teaching workspace. The black and deep-blue canvas recedes while structured panel layers, cyan instrument lines, yellow energy readouts, and green validation signals make the model's state immediately visible. The system is technical because the work is technical, but every label, unit, grouping, and state should help a first-time student orient rather than make expertise a prerequisite.\n\nThe chosen character is **layered and calibrated**: tonal depth and precise borders establish hierarchy before any glow appears. Translucency, blur, shadow, and illumination are functional instrument effects—not atmosphere applied indiscriminately. The UMass Lowell-derived palette is a binding visual identity, but the interface does not need to name the institution and must never use the palette to imply affiliation or endorsement.",
+    "keyCharacteristics": [
+      "Deep black and navy operating canvas with calibrated blue surface layers.",
+      "Solar yellow reserved for energy, measured emphasis, and physical control feedback.",
+      "Cyan and brand blue carry navigation, information, focus, and actionable state.",
+      "Compact sans-serif interface language paired with monospaced measured values.",
+      "Dense but strongly grouped layouts that remain precise, never intimidating.",
+      "Restrained ambient depth with selective signal glow."
+    ],
+    "rules": [
+      { "name": "The Energy Has a Color Rule", "body": "Solar yellow belongs to energy output, measured emphasis, and direct manipulation feedback; it is not a generic decorative accent.", "section": "colors" },
+      { "name": "The Signal Semantics Rule", "body": "Blue and cyan mean interaction or information, green means valid or complete, and orange means error or recovery. Never swap these roles for visual variety.", "section": "colors" },
+      { "name": "The Full-Palette Exception Rule", "body": "Use the extended fern, river, gold, and maroon accents together only in parametric comparison views where series distinction is functional.", "section": "colors" },
+      { "name": "The Two-Voices Rule", "body": "Sans-serif explains and directs; monospace measures and compares.", "section": "typography" },
+      { "name": "The No Faux Terminal Rule", "body": "Do not use monospace for prose, navigation, or headings merely to make the interface feel technical.", "section": "typography" },
+      { "name": "The Units Stay Attached Rule", "body": "Keep units visually subordinate but adjacent to their values, and never rely on position alone to explain a measurement.", "section": "typography" },
+      { "name": "The Control-to-Result Rule", "body": "Inputs and their consequences must remain in the same working context; do not hide primary results behind a separate route or modal.", "section": "layout" },
+      { "name": "The Group Before Space Rule", "body": "Use proximity to bind labels, values, and controls, then use the larger section rhythm to separate tasks. Do not make every gap equal.", "section": "layout" },
+      { "name": "The Structure Before Glow Rule", "body": "Establish hierarchy with tone, border, and offset shadow first. Add glow only when it communicates active, focused, solar, or successful state.", "section": "elevation" },
+      { "name": "The One Raised Plane Rule", "body": "Reserve the strongest shadow for overlays and temporary feedback; ordinary cards share one quieter elevation plane.", "section": "elevation" },
+      { "name": "The Nested Radius Rule", "body": "Inner controls must use a smaller radius than the surface containing them, preserving the sense of assembled instrumentation.", "section": "shapes" }
+    ],
+    "dos": [
+      "**Do** preserve the UMass Lowell-derived palette while keeping institutional naming optional and non-affiliation explicit.",
+      "**Do** use Solar Charge to connect energy controls, charts, and calculated AC output.",
+      "**Do** make every measurement's label, value, and unit understandable without relying on color alone.",
+      "**Do** build hierarchy with tonal layering and cyan-tinted borders before adding shadow or glow.",
+      "**Do** keep technical density approachable through strong grouping, plain labels, progressive disclosure, and visible system status.",
+      "**Do** use the extended accent family when a parametric comparison genuinely needs multiple distinguishable series."
+    ],
+    "donts": [
+      "**Don't** imply that the palette or interface represents sponsorship, endorsement, or an official NLR, NREL, Department of Energy, PVWatts, or UMass Lowell product.",
+      "**Don't** use Solar Charge, Valid Green, or Fault Orange interchangeably; each has a fixed semantic job.",
+      "**Don't** spread glow, blur, or translucency across every surface; instrument effects must explain depth or state.",
+      "**Don't** use monospace as a technical costume for prose, navigation, or general headings.",
+      "**Don't** extend the logo's legacy white-to-blue text gradient into headings, KPIs, or body copy.",
+      "**Don't** display the full accent family outside analytical comparison contexts."
+    ]
+  }
+}

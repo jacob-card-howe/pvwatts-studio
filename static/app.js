@@ -14,6 +14,10 @@ let currentResult = null;
 let simulationTimer = null;
 let simulationController = null;
 let simulationSequence = 0;
+let sweepController = null;
+let sweepInProgress = false;
+
+const SWEEP_CHUNK_SIZE = 7;
 
 // Chart instances
 let chartMonthlyAc = null;
@@ -62,10 +66,38 @@ function formatDecimal(value, maximumFractionDigits = 3, minimumFractionDigits =
 
 function initCopyButtons() {
   document.querySelectorAll('.copy-output-btn').forEach(button => {
-    button.dataset.defaultTitle = button.title;
     button.dataset.defaultLabel = button.getAttribute('aria-label') || 'Copy calculated output';
+    button.dataset.defaultTitle = button.dataset.defaultLabel;
     button.addEventListener('click', copyCalculatedOutput);
   });
+}
+
+function setResultActionsEnabled(enabled) {
+  document.querySelectorAll('.copy-output-btn').forEach(button => {
+    button.disabled = !enabled;
+    button.title = enabled ? button.dataset.defaultTitle : 'Available after calculation';
+  });
+  ['btn-export-json', 'btn-export-csv'].forEach(id => {
+    const button = document.getElementById(id);
+    if (button) button.disabled = !enabled;
+  });
+}
+
+function clearDisplayedResults() {
+  ['kpi-ac-annual', 'kpi-solrad-annual', 'kpi-capacity-factor', 'kpi-yield', 'mobile-kpi-ac'].forEach(id => {
+    const output = document.getElementById(id);
+    if (output) output.textContent = '—';
+  });
+  document.getElementById('tbody-monthly')?.replaceChildren();
+  document.getElementById('tfoot-annual')?.replaceChildren();
+  if (chartMonthlyAc) {
+    chartMonthlyAc.data.datasets[0].data = [];
+    chartMonthlyAc.update('none');
+  }
+  if (chartMonthlySolrad) {
+    chartMonthlySolrad.destroy();
+    chartMonthlySolrad = null;
+  }
 }
 
 async function copyCalculatedOutput(event) {
@@ -125,19 +157,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   initLocationSearch();
   initCharts();
   initCopyButtons();
+  setResultActionsEnabled(false);
   updateLocationLabels();
+  updateSweepAssumptions();
   await updateSimulation();
 });
 
 // Tab Navigation
 function initTabs() {
-  document.querySelectorAll('.nav-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      const target = document.getElementById(btn.dataset.tab);
-      if (target) target.classList.add('active');
+  const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+
+  const activateTab = (tab, moveFocus = false) => {
+    tabs.forEach(candidate => {
+      const selected = candidate === tab;
+      candidate.classList.toggle('active', selected);
+      candidate.setAttribute('aria-selected', String(selected));
+      candidate.tabIndex = selected ? 0 : -1;
+      const panel = document.getElementById(candidate.getAttribute('aria-controls'));
+      if (panel) {
+        panel.hidden = !selected;
+        panel.classList.toggle('active', selected);
+      }
+    });
+    if (tab.id === 'tab-parametric') updateSweepAssumptions();
+    if (moveFocus) tab.focus();
+  };
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => activateTab(tab));
+    tab.addEventListener('keydown', event => {
+      let nextIndex;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (index + 1) % tabs.length;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (index - 1 + tabs.length) % tabs.length;
+      if (event.key === 'Home') nextIndex = 0;
+      if (event.key === 'End') nextIndex = tabs.length - 1;
+      if (nextIndex === undefined) return;
+      event.preventDefault();
+      activateTab(tabs[nextIndex], true);
     });
   });
 }
@@ -176,11 +232,15 @@ function initLocationSearch() {
       searchLocation();
     } else if (event.key === 'Escape') {
       results.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
     }
   });
 
   document.addEventListener('click', event => {
-    if (!event.target.closest('.location-picker')) results.hidden = true;
+    if (!event.target.closest('.location-picker')) {
+      results.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+    }
   });
 }
 
@@ -196,8 +256,10 @@ async function searchLocation() {
   }
 
   button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
   status.textContent = 'Searching…';
   resultsBox.hidden = true;
+  input.setAttribute('aria-expanded', 'false');
   try {
     const response = await fetch(`/api/locations?q=${encodeURIComponent(query)}`);
     const payload = await readApiResponse(response);
@@ -210,6 +272,7 @@ async function searchLocation() {
     showToast(error.message, 'error');
   } finally {
     button.disabled = false;
+    button.removeAttribute('aria-busy');
   }
 }
 
@@ -220,7 +283,6 @@ function renderLocationResults(locations) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'location-result';
-    button.setAttribute('role', 'option');
 
     const name = document.createElement('span');
     name.textContent = location.name;
@@ -232,6 +294,7 @@ function renderLocationResults(locations) {
     resultsBox.appendChild(button);
   });
   resultsBox.hidden = locations.length === 0;
+  document.getElementById('input-location').setAttribute('aria-expanded', String(locations.length > 0));
 }
 
 function selectLocation(location) {
@@ -242,7 +305,8 @@ function selectLocation(location) {
   };
   document.getElementById('input-location').value = location.name;
   document.getElementById('location-results').hidden = true;
-  document.getElementById('location-search-status').textContent = 'Location selected.';
+  document.getElementById('input-location').setAttribute('aria-expanded', 'false');
+  document.getElementById('location-search-status').textContent = 'Location selected. Recalculating the estimate.';
   updateLocationLabels();
   scheduleSimulation(true);
 }
@@ -258,6 +322,21 @@ function updateLocationLabels(result = currentResult) {
   const station = result?.stationInfo;
   const source = station?.weather_data_source || 'current NSRDB data';
   label.textContent = `${currentLocation.name} · ${source}`;
+  updateSweepAssumptions();
+}
+
+function updateSweepAssumptions() {
+  const size = document.getElementById('sweep-assumption-size');
+  if (!size) return;
+  const params = getParams();
+  const moduleSelect = document.getElementById('select-module-type');
+  const arraySelect = document.getElementById('select-array-type');
+  document.getElementById('sweep-assumption-location').textContent = currentLocation.name;
+  size.textContent = `${formatDecimal(params.systemCapacityKw)} kW DC`;
+  document.getElementById('sweep-assumption-losses').textContent = `${formatDecimal(params.losses)}%`;
+  document.getElementById('sweep-assumption-hardware').textContent = `${moduleSelect.selectedOptions[0].text} · ${arraySelect.selectedOptions[0].text}`;
+  document.getElementById('sweep-assumption-details').textContent =
+    `DC/AC ${formatDecimal(params.dcAcRatio)} · inverter ${formatDecimal(params.invEff)}% · GCR ${formatDecimal(params.groundCoverageRatio)}. Only tilt and azimuth vary.`;
 }
 
 // Controls & Sliders Wiring
@@ -389,7 +468,16 @@ function initControls() {
     showToast('Reset parameters to standard defaults');
   });
 
-  document.getElementById('btn-run-sweep').addEventListener('click', runParametricSweep);
+  const sweepAcknowledgement = document.getElementById('sweep-quota-ack');
+  const sweepButton = document.getElementById('btn-run-sweep');
+  sweepAcknowledgement.addEventListener('change', () => {
+    sweepButton.disabled = !sweepAcknowledgement.checked || sweepInProgress;
+    document.getElementById('sweep-guard-help').textContent = sweepAcknowledgement.checked
+      ? 'Ready. You can cancel between request batches.'
+      : 'Acknowledge the request count to enable the sweep.';
+  });
+  sweepButton.addEventListener('click', runParametricSweep);
+  document.getElementById('btn-cancel-sweep').addEventListener('click', cancelParametricSweep);
 
   document.getElementById('btn-export-json').addEventListener('click', exportJson);
   document.getElementById('btn-export-csv').addEventListener('click', exportCsv);
@@ -449,11 +537,32 @@ function getParams() {
   return params;
 }
 
+function validateSimulationInputs() {
+  const fields = Array.from(document.querySelectorAll('.sidebar input[type="number"], .sidebar select'));
+  fields.forEach(field => field.removeAttribute('aria-invalid'));
+  const invalid = fields.find(field => !field.disabled && !field.checkValidity());
+  if (!invalid) return true;
+
+  invalid.setAttribute('aria-invalid', 'true');
+  const label = document.querySelector(`label[for="${invalid.id}"]`);
+  const name = label?.textContent.trim() || 'highlighted input';
+  setSimulationStatus(`Check ${name}: ${invalid.validationMessage}`, 'error');
+  return false;
+}
+
 function scheduleSimulation(immediate = false) {
   clearTimeout(simulationTimer);
   if (simulationController) simulationController.abort();
   simulationSequence += 1;
   currentResult = null;
+  setResultActionsEnabled(false);
+  const resultsArea = document.querySelector('.results-area');
+  if (resultsArea) {
+    resultsArea.classList.add('is-updating');
+    resultsArea.setAttribute('aria-busy', 'true');
+  }
+  updateSweepAssumptions();
+  setSimulationStatus('Inputs changed. Recalculating automatically…');
   simulationTimer = setTimeout(updateSimulation, immediate ? 0 : 450);
 }
 
@@ -461,16 +570,31 @@ function setSimulationStatus(message, type = '') {
   const status = document.getElementById('simulation-status');
   status.textContent = message;
   status.className = `simulation-status${type ? ` ${type}` : ''}`;
+  const mobileStatus = document.getElementById('mobile-estimate-status');
+  if (mobileStatus) mobileStatus.textContent = message;
 }
 
 // Calculate through the official PVWatts v8 API. Requests are debounced and
 // stale requests are aborted so dragging a slider cannot overwrite newer data.
 async function updateSimulation() {
   clearTimeout(simulationTimer);
+  if (!validateSimulationInputs()) {
+    currentResult = null;
+    setResultActionsEnabled(false);
+    clearDisplayedResults();
+    const invalidResultsArea = document.querySelector('.results-area');
+    if (invalidResultsArea) {
+      invalidResultsArea.classList.remove('is-updating');
+      invalidResultsArea.setAttribute('aria-busy', 'false');
+    }
+    return;
+  }
   if (simulationController) simulationController.abort();
   simulationController = new AbortController();
   const sequence = ++simulationSequence;
   const params = getParams();
+  const resultsArea = document.querySelector('.results-area');
+  if (resultsArea) resultsArea.setAttribute('aria-busy', 'true');
   setSimulationStatus('Calculating with official PVWatts v8 and current NSRDB data…');
 
   try {
@@ -484,6 +608,8 @@ async function updateSimulation() {
     if (sequence !== simulationSequence) return;
     currentResult = result;
     renderSimulation(result);
+    resultsArea?.classList.remove('is-updating');
+    setResultActionsEnabled(true);
     updateLocationLabels(result);
 
     const station = result.stationInfo || {};
@@ -494,13 +620,24 @@ async function updateSimulation() {
   } catch (error) {
     if (error.name === 'AbortError' || sequence !== simulationSequence) return;
     console.error('PVWatts simulation failed:', error);
-    setSimulationStatus(error.message, 'error');
-    showToast(error.message, 'error');
+    const message = error instanceof TypeError
+      ? 'Could not reach the local server. Check the connection, then change an input to retry.'
+      : error.message;
+    currentResult = null;
+    setResultActionsEnabled(false);
+    clearDisplayedResults();
+    resultsArea?.classList.remove('is-updating');
+    setSimulationStatus(message, 'error');
+    showToast(message, 'error');
+  } finally {
+    if (sequence === simulationSequence && resultsArea) resultsArea.setAttribute('aria-busy', 'false');
   }
 }
 
 function renderSimulation(res) {
-  document.getElementById('kpi-ac-annual').textContent = Math.round(res.annualAcKwh).toLocaleString();
+  const annualAc = Math.round(res.annualAcKwh).toLocaleString();
+  document.getElementById('kpi-ac-annual').textContent = annualAc;
+  document.getElementById('mobile-kpi-ac').textContent = annualAc;
   document.getElementById('kpi-solrad-annual').textContent = res.annualSolrad.toFixed(2);
   document.getElementById('kpi-capacity-factor').textContent = res.capacityFactor.toFixed(1);
   document.getElementById('kpi-yield').textContent = Math.round(res.kwhPerKw).toLocaleString();
@@ -525,7 +662,7 @@ function renderSimulation(res) {
       totalDc += res.monthlyDc[month];
       rowsHtml += `
         <tr>
-          <td>${res.monthNames[month]}</td>
+          <th scope="row">${res.monthNames[month]}</th>
           <td>${solrad.toFixed(2)}</td>
           <td>${poaM2.toFixed(1)}</td>
           <td>${res.monthlyDc[month].toFixed(1)}</td>
@@ -538,7 +675,7 @@ function renderSimulation(res) {
     const tfoot = document.getElementById('tfoot-annual');
     if (tfoot) {
       tfoot.innerHTML = `
-        <td>Annual Total / Avg</td>
+        <th scope="row">Annual total / average</th>
         <td>${res.annualSolrad.toFixed(2)}</td>
         <td>${totalPoaKwh.toFixed(1)}</td>
         <td>${totalDc.toFixed(1)}</td>
@@ -548,8 +685,20 @@ function renderSimulation(res) {
   }
 }
 
+function showChartFallback(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  const fallback = document.getElementById(`${canvasId}-fallback`);
+  if (canvas) canvas.hidden = true;
+  if (fallback) fallback.hidden = false;
+}
+
 function renderMonthlySolarRadiationChart(res) {
   const canvas = document.getElementById('chart-monthly-solrad');
+  if (typeof Chart === 'undefined') {
+    showChartFallback('chart-monthly-solrad');
+    return;
+  }
+  if (canvas) canvas.hidden = false;
   const values = Array.isArray(res.monthlySolrad) ? res.monthlySolrad.map(Number) : [];
   if (!canvas || values.length !== 12 || values.some(value => !Number.isFinite(value))) {
     console.error('PVWatts returned invalid monthly solar radiation data:', res.monthlySolrad);
@@ -609,6 +758,11 @@ function renderMonthlySolarRadiationChart(res) {
 
 // Initialize charts that do not need response-specific construction.
 function initCharts() {
+  if (typeof Chart === 'undefined') {
+    showChartFallback('chart-monthly-ac');
+    showChartFallback('chart-monthly-solrad');
+    return;
+  }
   const ctxAc = document.getElementById('chart-monthly-ac')?.getContext('2d');
   if (ctxAc) {
     chartMonthlyAc = new Chart(ctxAc, {
@@ -653,33 +807,195 @@ function initCharts() {
   }
 }
 
-async function simulateBatch(requests, shared) {
+async function simulateBatch(requests, shared, signal) {
   const response = await fetch('/api/simulate-batch', {
     method: 'POST',
     headers: getApiRequestHeaders(),
-    body: JSON.stringify({ requests, shared })
+    body: JSON.stringify({ requests, shared }),
+    signal
   });
   const payload = await readApiResponse(response);
   return payload.results;
 }
 
-// 2D Parametric Sweep
+function setSweepLoading(visible, status, detail, completed = 0) {
+  const container = document.getElementById('sweep-chart-container');
+  const loading = document.getElementById('sweep-loading');
+  const statusElement = document.getElementById('sweep-status');
+  const detailElement = document.getElementById('sweep-status-detail');
+  const progress = document.getElementById('sweep-progress');
+  const progressLabel = document.getElementById('sweep-progress-label');
+
+  if (!container || !loading || !statusElement || !detailElement || !progress || !progressLabel) return;
+  container.setAttribute('aria-busy', String(visible));
+  loading.hidden = !visible;
+  if (!visible) return;
+
+  statusElement.textContent = status;
+  detailElement.textContent = detail;
+  if (Number.isFinite(completed)) {
+    progress.value = completed;
+    progress.textContent = `${completed} of ${progress.max}`;
+    progressLabel.textContent = `${completed} / ${progress.max}`;
+  } else {
+    progress.removeAttribute('value');
+    progress.textContent = 'Simulations in progress';
+    progressLabel.textContent = 'In progress';
+  }
+}
+
+function setSimulatorControlsForSweep(disabled) {
+  document.querySelectorAll('.sidebar input, .sidebar select, .sidebar button').forEach(control => {
+    if (disabled) {
+      control.dataset.sweepWasDisabled = String(control.disabled);
+      control.disabled = true;
+    } else {
+      control.disabled = control.dataset.sweepWasDisabled === 'true';
+      delete control.dataset.sweepWasDisabled;
+    }
+  });
+}
+
+function cancelParametricSweep() {
+  if (!sweepInProgress || !sweepController) return;
+  const completed = Number(document.getElementById('sweep-progress').value) || 0;
+  setSweepLoading(true, 'Cancelling comparison…', `Stopping after ${completed} completed simulations. No new batches will be sent.`, completed);
+  sweepController.abort();
+}
+
+function renderSweepTable(tilts, azimuths, results) {
+  const head = document.getElementById('sweep-table-head');
+  const body = document.getElementById('sweep-table-body');
+  const headerRow = document.createElement('tr');
+  const corner = document.createElement('th');
+  corner.scope = 'col';
+  corner.textContent = 'Azimuth / tilt';
+  headerRow.appendChild(corner);
+  tilts.forEach(tilt => {
+    const heading = document.createElement('th');
+    heading.scope = 'col';
+    heading.textContent = `${tilt}°`;
+    headerRow.appendChild(heading);
+  });
+  head.replaceChildren(headerRow);
+
+  const rows = azimuths.map((azimuth, azimuthIndex) => {
+    const row = document.createElement('tr');
+    const heading = document.createElement('th');
+    heading.scope = 'row';
+    heading.textContent = `${azimuth}°`;
+    row.appendChild(heading);
+    tilts.forEach((_tilt, tiltIndex) => {
+      const cell = document.createElement('td');
+      const result = results[(azimuthIndex * tilts.length) + tiltIndex];
+      cell.textContent = Math.round(result.annualAcKwh).toLocaleString();
+      row.appendChild(cell);
+    });
+    return row;
+  });
+  body.replaceChildren(...rows);
+  document.getElementById('sweep-data-panel').hidden = false;
+}
+
+function renderSweepChart(tilts, azimuths, sweepResults) {
+  const canvas = document.getElementById('chart-sweep');
+  const empty = document.getElementById('sweep-empty');
+  renderSweepTable(tilts, azimuths, sweepResults);
+
+  const values = sweepResults.map(result => Number(result.annualAcKwh));
+  const bestIndex = values.indexOf(Math.max(...values));
+  const bestAzimuth = azimuths[Math.floor(bestIndex / tilts.length)];
+  const bestTilt = tilts[bestIndex % tilts.length];
+  canvas.setAttribute('aria-label', `Line chart comparing annual AC energy by tilt and azimuth. Highest modeled result is ${formatDecimal(values[bestIndex], 0)} kilowatt-hours at ${bestTilt} degrees tilt and ${bestAzimuth} degrees azimuth.`);
+
+  if (typeof Chart === 'undefined') {
+    empty.hidden = false;
+    empty.textContent = 'Chart rendering is unavailable. The complete comparison is available in the data table below.';
+    canvas.hidden = true;
+    return;
+  }
+
+  const datasets = azimuths.map((azimuth, azimuthIndex) => ({
+    label: `Azimuth ${azimuth}°`,
+    data: tilts.map((_tilt, tiltIndex) => Math.round(sweepResults[(azimuthIndex * tilts.length) + tiltIndex].annualAcKwh)),
+    borderColor: PARAMETRIC_COLORS[azimuthIndex % PARAMETRIC_COLORS.length],
+    backgroundColor: PARAMETRIC_COLORS[azimuthIndex % PARAMETRIC_COLORS.length],
+    borderWidth: 2,
+    pointRadius: 2.5,
+    pointHoverRadius: 5,
+    tension: 0.25
+  }));
+
+  if (chartSweep) chartSweep.destroy();
+  canvas.hidden = false;
+  empty.hidden = true;
+  chartSweep = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels: tilts.map(tilt => `${tilt}° tilt`), datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { color: UML_COLORS.textSecondary, usePointStyle: true, boxWidth: 8 } },
+        tooltip: {
+          backgroundColor: UML_COLORS.tooltipBackground,
+          titleColor: UML_COLORS.textPrimary,
+          bodyColor: UML_COLORS.textPrimary,
+          borderColor: UML_COLORS.tooltipBorder,
+          borderWidth: 1
+        }
+      },
+      scales: {
+        x: { grid: { color: UML_COLORS.gridLine }, ticks: { color: UML_COLORS.textSecondary } },
+        y: {
+          grid: { color: UML_COLORS.gridLine },
+          ticks: { color: UML_COLORS.textSecondary },
+          title: { display: true, text: 'Annual AC energy (kWh)', color: UML_COLORS.textSecondary }
+        }
+      }
+    }
+  });
+}
+
+// Requests are sent in bounded batches. Cancelling aborts the active fetch and
+// prevents every unsent batch from consuming additional API quota.
 async function runParametricSweep() {
   const button = document.getElementById('btn-run-sweep');
-  const originalText = button.textContent;
-  button.disabled = true;
-  button.textContent = 'Running 77 official simulations…';
-
+  const cancelButton = document.getElementById('btn-cancel-sweep');
+  const acknowledgement = document.getElementById('sweep-quota-ack');
+  const empty = document.getElementById('sweep-empty');
   const tilts = [0, 10, 20, 30, 35, 40, 50, 60, 70, 80, 90];
-  const azs = [90, 120, 150, 180, 210, 240, 270];
+  const azimuths = [90, 120, 150, 180, 210, 240, 270];
+  const totalSimulations = tilts.length * azimuths.length;
+  let completed = 0;
+
+  if (!acknowledgement.checked || sweepInProgress) return;
+  if (!validateSimulationInputs()) {
+    showToast('Correct the highlighted simulator input before running the comparison.', 'error');
+    return;
+  }
+
+  sweepInProgress = true;
+  sweepController = new AbortController();
+  button.disabled = true;
+  button.textContent = 'Running comparison…';
+  button.setAttribute('aria-busy', 'true');
+  cancelButton.hidden = false;
+  empty.hidden = true;
+  document.getElementById('chart-sweep').hidden = true;
+  document.getElementById('sweep-data-panel').hidden = true;
+  if (chartSweep) {
+    chartSweep.destroy();
+    chartSweep = null;
+  }
+
   const currentParams = getParams();
-  const requests = azs.flatMap(azimuth => tilts.map(tilt => ({
-    systemCapacityKw: 6,
-    losses: 11,
-    tilt,
-    azimuth
-  })));
+  setSimulatorControlsForSweep(true);
   const shared = {
+    systemCapacityKw: currentParams.systemCapacityKw,
+    losses: currentParams.losses,
     lat: currentLocation.lat,
     lon: currentLocation.lon,
     moduleType: currentParams.moduleType,
@@ -693,59 +1009,70 @@ async function runParametricSweep() {
   };
   if (!currentParams.useWeatherFileAlbedo) shared.albedo = currentParams.albedo;
 
-  let sweepResults;
+  const requests = azimuths.flatMap(azimuth => tilts.map(tilt => ({ tilt, azimuth })));
+  const sweepResults = [];
+
   try {
-    sweepResults = await simulateBatch(requests, shared);
+    for (let offset = 0; offset < requests.length; offset += SWEEP_CHUNK_SIZE) {
+      const batch = requests.slice(offset, offset + SWEEP_CHUNK_SIZE);
+      setSweepLoading(
+        true,
+        `Running official simulations ${completed + 1}–${Math.min(completed + batch.length, totalSimulations)}…`,
+        `${completed} complete · ${totalSimulations - completed} remaining for ${currentLocation.name}`,
+        completed
+      );
+      const batchResults = await simulateBatch(batch, shared, sweepController.signal);
+      sweepResults.push(...batchResults);
+      completed = sweepResults.length;
+      setSweepLoading(true, `${completed} of ${totalSimulations} simulations complete`, 'You can cancel before the next batch is sent.', completed);
+    }
+
+    setSweepLoading(true, 'Building comparison…', 'All simulations are complete. Rendering the chart and accessible table.', totalSimulations);
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    renderSweepChart(tilts, azimuths, sweepResults);
+    document.getElementById('sweep-guard-help').textContent = 'Comparison complete. Acknowledge the quota again to rerun it.';
+    showToast(`Comparison complete: ${totalSimulations} official PVWatts simulations.`);
   } catch (error) {
-    showToast(`Sweep failed: ${error.message}`, 'error');
-    return;
+    empty.hidden = false;
+    if (error.name === 'AbortError') {
+      document.getElementById('sweep-guard-help').textContent = 'Comparison cancelled. Acknowledge the quota again when you are ready to restart.';
+      empty.textContent = `Comparison cancelled after ${completed} completed simulations. No further batches were sent.`;
+      showToast(`Comparison cancelled after ${completed} of ${totalSimulations} simulations.`);
+    } else {
+      document.getElementById('sweep-guard-help').textContent = 'The comparison stopped. Check the message above, then acknowledge the quota to retry.';
+      const message = error instanceof TypeError
+        ? 'Could not reach the local server. Check the connection before retrying.'
+        : error.message;
+      empty.textContent = `Comparison stopped after ${completed} completed simulations. ${message}`;
+      showToast(`Comparison stopped: ${message}`, 'error');
+    }
   } finally {
-    button.disabled = false;
-    button.textContent = originalText;
+    setSimulatorControlsForSweep(false);
+    sweepInProgress = false;
+    sweepController = null;
+    setSweepLoading(false, '', '');
+    button.textContent = 'Run 77 simulations';
+    button.removeAttribute('aria-busy');
+    acknowledgement.checked = false;
+    button.disabled = true;
+    cancelButton.hidden = true;
   }
+}
 
-  let resultIndex = 0;
-  const colorList = PARAMETRIC_COLORS;
-  const datasets = azs.map((azimuth, index) => ({
-    label: `Azimuth ${azimuth}°`,
-    data: tilts.map(() => Math.round(sweepResults[resultIndex++].annualAcKwh)),
-    borderColor: colorList[index % colorList.length],
-    backgroundColor: colorList[index % colorList.length],
-    borderWidth: 2,
-    tension: 0.3
-  }));
-  showToast('Computed 77 simulations with official PVWatts v8.');
-
-  const ctx = document.getElementById('chart-sweep')?.getContext('2d');
-  if (ctx) {
-    if (chartSweep) chartSweep.destroy();
-    chartSweep = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: tilts.map(t => `${t}° Tilt`),
-        datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'top', labels: { color: UML_COLORS.textSecondary } }
-        },
-        scales: {
-          x: { grid: { color: UML_COLORS.gridLine }, ticks: { color: UML_COLORS.textSecondary } },
-          y: { grid: { color: UML_COLORS.gridLine }, ticks: { color: UML_COLORS.textSecondary }, title: { display: true, text: 'Annual AC (kWh)', color: UML_COLORS.textSecondary } }
-        }
-      }
-    });
-  }
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 // Export JSON
 function exportJson() {
-  if (!currentResult) {
-    showToast('Wait for a successful PVWatts calculation before exporting.', 'error');
-    return;
-  }
+  if (!currentResult) return;
   const params = getParams();
   const data = {
     location: currentLocation,
@@ -756,43 +1083,60 @@ function exportJson() {
     timestamp: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `pvwatts_results_${params.systemCapacityKw}kW.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, `pvwatts_results_${params.systemCapacityKw}kW.json`);
+}
+
+function csvCell(value) {
+  const text = String(value ?? '');
+  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function createMonthlyCsv(res) {
+  const monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const monthlyPoa = monthDays.map((days, month) => res.monthlyPoa?.[month] ?? (res.monthlySolrad[month] * days));
+  const rows = [[
+    'Month',
+    'Solar radiation (kWh/m²/day)',
+    'Plane of array (kWh/m²)',
+    'DC energy (kWh)',
+    'AC energy (kWh)'
+  ]];
+
+  for (let month = 0; month < 12; month++) {
+    rows.push([
+      res.monthNames[month],
+      res.monthlySolrad[month],
+      monthlyPoa[month],
+      res.monthlyDc[month],
+      res.monthlyAc[month]
+    ]);
+  }
+  rows.push([
+    'Annual total / average',
+    res.annualSolrad,
+    monthlyPoa.reduce((sum, value) => sum + Number(value), 0),
+    res.monthlyDc.reduce((sum, value) => sum + Number(value), 0),
+    res.annualAcKwh
+  ]);
+  return `\uFEFF${rows.map(row => row.map(csvCell).join(',')).join('\n')}\n`;
 }
 
 // Export CSV
 function exportCsv() {
-  if (!currentResult) {
-    showToast('Wait for a successful PVWatts calculation before exporting.', 'error');
-    return;
-  }
+  if (!currentResult) return;
   const params = getParams();
-  const res = currentResult;
-  let csv = 'Month,Solar Radiation (kWh/m2/day),AC Energy (kWh),DC Energy (kWh)\n';
-  for (let m = 0; m < 12; m++) {
-    csv += `${res.monthNames[m]},${res.monthlySolrad[m]},${res.monthlyAc[m]},${res.monthlyDc[m]}\n`;
-  }
-  csv += `Annual,${res.annualSolrad},${res.annualAcKwh},${res.kwhPerKw}\n`;
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `pvwatts_monthly_${params.systemCapacityKw}kW.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const blob = new Blob([createMonthlyCsv(currentResult)], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(blob, `pvwatts_monthly_${params.systemCapacityKw}kW.csv`);
 }
 
 // Toast Helper
-function showToast(msg, type = 'info') {
+function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast${type === 'error' ? ' error' : ''}`;
-  toast.textContent = msg;
+  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  toast.textContent = message;
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
+  window.setTimeout(() => toast.remove(), type === 'error' ? 6000 : 4000);
 }
