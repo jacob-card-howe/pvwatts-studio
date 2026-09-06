@@ -30,6 +30,7 @@ class TestStaticUI(unittest.TestCase):
         cls.parser.feed(cls.html)
         cls.javascript = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
         cls.styles = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
+        cls.client = (ROOT / "static" / "pvwatts_client.js").read_text(encoding="utf-8")
 
     def test_root_canvas_uses_the_page_background_during_overscroll(self):
         self.assertRegex(
@@ -99,9 +100,24 @@ class TestStaticUI(unittest.TestCase):
         self.assertEqual(attributes["autocomplete"], "off")
         self.assertGreater(self.html.index('id="input-api-key"'), self.html.index('id="input-location"'))
         self.assertIn('class="api-access-settings"', self.html)
-        self.assertIn("headers['X-NLR-API-Key'] = apiKey", self.javascript)
-        self.assertNotIn("localStorage", self.javascript)
-        self.assertNotIn("sessionStorage", self.javascript)
+        self.assertIn("function getApiKey()", self.javascript)
+        self.assertIn("apiKey: getApiKey()", self.javascript)
+        for source in (self.javascript, self.client):
+            self.assertNotIn("localStorage", source)
+            self.assertNotIn("sessionStorage", source)
+
+    def test_the_app_is_static_and_calls_the_upstream_services_directly(self):
+        """The site deploys as static files, so no same-origin backend may exist."""
+        for source in (self.javascript, self.html):
+            self.assertNotIn("/api/", source)
+        self.assertIn("https://developer.nlr.gov/api/pvwatts/v8.json", self.client)
+        self.assertIn("https://nominatim.openstreetmap.org/search", self.client)
+        self.assertIn('src="pvwatts_client.js"', self.html)
+        self.assertLess(
+            self.html.index('src="pvwatts_client.js"'),
+            self.html.index('src="app.js"'),
+            "the client must be loaded before app.js uses it",
+        )
 
     def test_default_location_is_consistent_and_valid(self):
         self.assertIn('value="Renton, WA"', self.html)

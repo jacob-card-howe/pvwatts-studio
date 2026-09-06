@@ -17,6 +17,8 @@ let simulationSequence = 0;
 let sweepController = null;
 let sweepInProgress = false;
 
+const pvwattsClient = new PVWatts.PVWattsClient();
+
 const SWEEP_CHUNK_SIZE = 7;
 
 // Chart instances
@@ -198,26 +200,10 @@ function initTabs() {
   });
 }
 
-async function readApiResponse(response) {
-  let payload;
-  try {
-    payload = await response.json();
-  } catch (_error) {
-    throw new Error(`Server returned HTTP ${response.status}`);
-  }
-  if (!response.ok) {
-    const error = new Error(payload.error || `Server returned HTTP ${response.status}`);
-    error.code = payload.code;
-    throw error;
-  }
-  return payload;
-}
-
-function getApiRequestHeaders() {
-  const headers = { 'Content-Type': 'application/json' };
-  const apiKey = document.getElementById('input-api-key')?.value.trim();
-  if (apiKey) headers['X-NLR-API-Key'] = apiKey;
-  return headers;
+// The key is read at call time, never stored, and travels only in the
+// api_key query parameter that PVWatts itself requires.
+function getApiKey() {
+  return document.getElementById('input-api-key')?.value.trim() || '';
 }
 
 function initLocationSearch() {
@@ -261,10 +247,9 @@ async function searchLocation() {
   resultsBox.hidden = true;
   input.setAttribute('aria-expanded', 'false');
   try {
-    const response = await fetch(`/api/locations?q=${encodeURIComponent(query)}`);
-    const payload = await readApiResponse(response);
-    renderLocationResults(payload.results || []);
-    status.textContent = payload.results?.length
+    const results = await PVWatts.searchLocations(query);
+    renderLocationResults(results);
+    status.textContent = results.length
       ? 'Select the intended location below.'
       : 'No locations found. Try a more specific address or coordinates.';
   } catch (error) {
@@ -598,13 +583,10 @@ async function updateSimulation() {
   setSimulationStatus('Calculating with official PVWatts v8 and current NSRDB data…');
 
   try {
-    const response = await fetch('/api/simulate', {
-      method: 'POST',
-      headers: getApiRequestHeaders(),
-      body: JSON.stringify(params),
+    const result = await pvwattsClient.simulate(params, {
+      apiKey: getApiKey(),
       signal: simulationController.signal
     });
-    const result = await readApiResponse(response);
     if (sequence !== simulationSequence) return;
     currentResult = result;
     renderSimulation(result);
@@ -620,9 +602,7 @@ async function updateSimulation() {
   } catch (error) {
     if (error.name === 'AbortError' || sequence !== simulationSequence) return;
     console.error('PVWatts simulation failed:', error);
-    const message = error instanceof TypeError
-      ? 'Could not reach the local server. Check the connection, then change an input to retry.'
-      : error.message;
+    const message = error.message;
     currentResult = null;
     setResultActionsEnabled(false);
     clearDisplayedResults();
@@ -807,15 +787,16 @@ function initCharts() {
   }
 }
 
+// Requests run one at a time so a cancelled sweep stops promptly and the
+// shared PVWatts rate limit is not hit with a burst of parallel calls.
 async function simulateBatch(requests, shared, signal) {
-  const response = await fetch('/api/simulate-batch', {
-    method: 'POST',
-    headers: getApiRequestHeaders(),
-    body: JSON.stringify({ requests, shared }),
-    signal
-  });
-  const payload = await readApiResponse(response);
-  return payload.results;
+  const apiKey = getApiKey();
+  const results = [];
+  for (const request of requests) {
+    if (signal.aborted) throw new DOMException('Sweep cancelled', 'AbortError');
+    results.push(await pvwattsClient.simulate({ ...shared, ...request }, { apiKey, signal }));
+  }
+  return results;
 }
 
 function setSweepLoading(visible, status, detail, completed = 0) {
@@ -1040,9 +1021,7 @@ async function runParametricSweep() {
       showToast(`Comparison cancelled after ${completed} of ${totalSimulations} simulations.`);
     } else {
       document.getElementById('sweep-guard-help').textContent = 'The comparison stopped. Check the message above, then acknowledge the quota to retry.';
-      const message = error instanceof TypeError
-        ? 'Could not reach the local server. Check the connection before retrying.'
-        : error.message;
+      const message = error.message;
       empty.textContent = `Comparison stopped after ${completed} completed simulations. ${message}`;
       showToast(`Comparison stopped: ${message}`, 'error');
     }

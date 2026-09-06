@@ -47,7 +47,7 @@ The UMass Lowell-derived color scheme currently defined in `static/styles.css` i
 - `README.md`: product scope, canonical workflow, operational requirements, feature inventory, API-key policy, data policy, and independent-project disclaimer.
 - `static/index.html`: current product copy, complete input and output structure, exports, comparison workflow, attribution, and visible disclaimer.
 - `static/app.js`: interactive behavior, request lifecycle, current charts, comparison logic, exports, and session-only API-key handling.
-- `pvwatts_api.py` and `server.py`: official-service integration, validation rules, caching, geocoding, local serving, and error behavior.
+- `static/pvwatts_client.js`: official-service integration, validation rules, caching, geocoding, and error behavior.
 - `tests/`: automated evidence for adapter normalization, HTTP behavior, static UI commitments, browser key handling, and the legacy CLI boundary.
 - `docs/imgs/pvwatts_studio.png`: a committed screenshot of the current interface.
 - No testimonials, customer adoption evidence, production-deployment claims, or comparative usability study are present; future work must not fabricate them.
