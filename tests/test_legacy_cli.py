@@ -12,7 +12,7 @@ from pvwatts_fast import FastPVWatts
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "pvwatts_cli.py"
-CATALOG = ROOT / "static" / "data" / "catalog.json"
+CATALOG = ROOT / "data" / "catalog.json"
 
 
 class TestLegacyCLI(unittest.TestCase):

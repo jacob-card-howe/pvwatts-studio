@@ -32,7 +32,7 @@ htmlcov/
 *.log
 *.pid
 
-# Downloaded/generated research assets (runtime uses static/data/*.json)
+# Downloaded/generated research assets (the offline CLI uses data/*.json)
 weather_data/
 weather_renton/
 seatac_tmy3.epw
@@ -40,6 +40,9 @@ ssc_src/
 # Playwright CLI output (may contain credentials) and local browser config
 .playwright-cli/
 .playwright/
+
+# Wrangler's local account/project cache
+.wrangler/
 
 # Local agent tooling, not part of the project
 .pi/

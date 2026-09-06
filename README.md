@@ -1,6 +1,8 @@
 # PVWatts Studio
 
-A small, dependency-free Python web interface for the official **PVWatts® v8 API**. It provides location search, monthly production charts, exports, advanced model inputs, and tilt/azimuth studies.
+A small, dependency-free static web interface for the official **PVWatts® v8 API**. It provides location search, monthly production charts, exports, advanced model inputs, and tilt/azimuth studies.
+
+The site is plain HTML, CSS, and JavaScript with no backend and no build step. The browser calls the PVWatts and geocoding services directly, so it can be hosted on any static host, including a free Cloudflare Pages project.
 
 ## Independent-project disclaimer
 
@@ -14,28 +16,31 @@ A small, dependency-free Python web interface for the official **PVWatts® v8 AP
 
 Requirements:
 
-- Python 3.10+
+- Any static file server for local development (Python 3 is used below, but nothing in the site requires it)
 - Internet access for location search, Chart.js, and PVWatts calculations
 - An [NLR developer API key](https://developer.nlr.gov/) (recommended)
 
-No package installation is required; the application uses only the Python standard library.
-
 ```bash
-NLR_API_KEY="your-key" python3 server.py
+python3 -m http.server -d static 8000
 ```
 
-Open <http://localhost:8000>. You can also leave the environment variable unset and enter an API key in the browser.
+Open <http://localhost:8000> and enter an API key in the browser.
 
-The public `DEMO_KEY` is used when no key is supplied, but its low rate limit can produce HTTP 429 responses. The legacy `NREL_API_KEY` environment variable is also accepted.
+Opening `static/index.html` directly from the filesystem is not supported; serve the directory over HTTP so the browser sends a normal origin to the upstream services.
 
-### Server options
+The public `DEMO_KEY` is used when no key is entered, but its low rate limit can produce HTTP 429 responses.
+
+## Deploying to Cloudflare Pages
+
+`static/` is the complete site. There is no build step and no server-side code, so it fits comfortably in the Cloudflare Pages free tier.
 
 ```bash
-python3 server.py --port 8080
-python3 server.py --host 0.0.0.0 --port 8000
+npx wrangler pages deploy static --project-name pvwatts-studio
 ```
 
-The server binds to `127.0.0.1` by default so the browser-provided API key is not exposed to other devices. Only use a non-loopback host on a network you trust.
+For the git integration, set the build command to none and the output directory to `static`. Any other static host works the same way.
+
+Both upstream services send `Access-Control-Allow-Origin: *` on success and on error responses, which is what makes the backend unnecessary.
 
 ## Features
 
@@ -53,27 +58,21 @@ The server binds to `127.0.0.1` by default so the browser-provided API key is no
 Location text
   -> OpenStreetMap/Nominatim geocoding
   -> latitude/longitude
-  -> local Python server
   -> official PVWatts v8 API
   -> SSC pvwattsv8 + current NSRDB TMY
   -> normalized JSON response
   -> charts, table, and exports
 ```
 
-The browser calls `POST /api/simulate` for normal calculations and `POST /api/simulate-batch` for parametric studies. The server validates inputs and requests `dataset=nsrdb`, `radius=0`, and `timeframe=monthly` from PVWatts.
+[`static/pvwatts_client.js`](static/pvwatts_client.js) validates inputs in the browser, requests `dataset=nsrdb`, `radius=0`, and `timeframe=monthly` from PVWatts, and normalizes the response into the shape the interface renders.
 
-A normal update costs one PVWatts request unless an identical calculation is cached. A full parametric sweep can cost up to 77 requests, so use a personal developer key for batch studies.
+A normal update costs one PVWatts request unless an identical calculation is served from the in-memory cache. A full parametric sweep can cost up to 77 requests, so use a personal developer key for batch studies.
 
 ## API key handling
 
-The browser key field is a password input. The application does not write its value to local storage, session storage, exports, or application files. It sends the key to the local server in the `X-NLR-API-Key` header, and the server uses it only for the corresponding PVWatts request.
+The browser key field is a password input. The application does not write its value to local storage, session storage, exports, or application files. It is read at request time and sent only in the `api_key` query parameter that PVWatts itself requires. When the field is empty, the public `DEMO_KEY` is used.
 
-Key precedence is:
-
-1. Key entered in the browser
-2. `NLR_API_KEY` on the server
-3. Legacy `NREL_API_KEY` on the server
-4. Public `DEMO_KEY`
+Because there is no backend, every visitor supplies their own key and consumes their own quota. Do not deploy a personal key in the site source; it would be readable by anyone who opens the page.
 
 The key remains visible in browser developer tools and is transmitted to NLR as required by the service.
 
@@ -87,7 +86,7 @@ python3 pvwatts_cli.py --location seatac_tmy3 --size 6 --json
 python3 pvwatts_cli.py --sweep-tilt --size 6 --losses 11 --azimuth 180
 ```
 
-Available station IDs are listed in [`static/data/catalog.json`](static/data/catalog.json).
+Available station IDs are listed in [`data/catalog.json`](data/catalog.json).
 
 `--weather-file` remains for compatibility with older callers. Its filename is used to select a matching preprocessed station; the CLI does **not** parse arbitrary EPW contents. Commands that referenced the former bundled `weather_data/*.epw` paths continue to resolve to the equivalent preprocessed dataset.
 
@@ -96,39 +95,40 @@ Available station IDs are listed in [`static/data/catalog.json`](static/data/cat
 Run the complete test suite:
 
 ```bash
-python3 -m unittest discover -s tests -v
+node --test tests/test_pvwatts_client.mjs
+python3 -m unittest tests.test_static_ui tests.test_legacy_cli -v
 ```
 
-The tests use mocked PVWatts responses and local coordinate parsing, so they do not consume API quota.
+The tests stub the upstream responses and parse coordinates locally, so they do not consume API quota.
 
 Useful smoke tests:
 
 ```bash
 python3 pvwatts_cli.py --location renton_tmy3 --json
-python3 server.py --port 8080
+python3 -m http.server -d static 8000
 ```
 
-When changing request or response fields, update the adapter tests, HTTP tests, and browser integration checks together.
+When changing request or response fields, update the client tests and the browser markup checks together.
 
 ## Repository layout
 
 | Path | Purpose |
 | --- | --- |
-| [`server.py`](server.py) | Local HTTP server, static-file hosting, and JSON endpoints |
-| [`pvwatts_api.py`](pvwatts_api.py) | Official v8 adapter, input validation, geocoder, and cache |
+| [`static/`](static/) | The complete deployable site (~140 KB) |
 | [`static/index.html`](static/index.html) | Browser interface |
-| [`static/app.js`](static/app.js) | API calls, charts, exports, and parametric sweep logic |
+| [`static/pvwatts_client.js`](static/pvwatts_client.js) | Official v8 adapter, input validation, geocoder, and cache |
+| [`static/app.js`](static/app.js) | Controls, charts, exports, and parametric sweep logic |
 | [`static/styles.css`](static/styles.css) | Interface styling |
-| [`tests/`](tests/) | Unit, HTTP, browser-markup, and legacy CLI regression tests |
+| [`tests/`](tests/) | Client, browser-markup, and legacy CLI regression tests |
 | [`pvwatts_cli.py`](pvwatts_cli.py) | Optional historical-weather command-line interface |
 | [`pvwatts_fast.py`](pvwatts_fast.py) | Optional pure-Python historical calculation engine |
-| [`static/data/`](static/data/) | Preprocessed hourly arrays required by the historical engine |
+| [`data/`](data/) | Preprocessed hourly arrays required by the historical engine |
 
 ### Data footprint policy
 
 Only data required at runtime is tracked:
 
-- `static/data/*.json` supports the optional historical CLI and engine.
+- `data/*.json` supports the optional historical CLI and engine. It sits outside `static/` so it is not part of the deployed site.
 - Raw EPW bundles are not required because the historical engine reads the preprocessed JSON arrays directly.
 - Copies of SSC source are not required because the web application calls the hosted PVWatts API and does not compile SSC locally.
 
@@ -136,7 +136,7 @@ Keep downloaded weather bundles, generated export formats, and source-code refer
 
 ## Location search and attribution
 
-Location searches are submitted only when the user presses **Search** or **Enter**, rather than on every keystroke, to comply with the public Nominatim usage policy. Location data is © OpenStreetMap contributors.
+Location searches are submitted only when the user presses **Search** or **Enter**, rather than on every keystroke, to comply with the public Nominatim usage policy. The browser identifies itself to Nominatim with its own `User-Agent` and `Referer`. Location data is © OpenStreetMap contributors.
 
 PVWatts is a registered trademark of the National Laboratory of the Rockies (formerly NREL). See the [independent-project disclaimer](#independent-project-disclaimer) above.
 

@@ -1,7 +1,7 @@
 """
 PVWatts v5 / v8 Calculation Engine in Pure Python (Standard Library Only).
 Zero external dependencies (no numpy, no scipy, no pandas required).
-Loads precomputed solar geometry and weather arrays from static/data/<station>.json
+Loads precomputed solar geometry and weather arrays from data/<station>.json
 and executes the full 8,760-hour annual simulation in ~10 milliseconds.
 """
 
@@ -29,7 +29,7 @@ class FastPVWatts:
     def __init__(self, station_or_path="renton_tmy3"):
         # Resolve station ID or json/epw path
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        data_dir = os.path.join(base_dir, "static", "data")
+        data_dir = os.path.join(base_dir, "data")
 
         json_path = None
         if os.path.isfile(station_or_path) and station_or_path.endswith(".json"):
