@@ -1789,3 +1789,660 @@ button svg,
     transition: none;
   }
 }
+
+/* ==========================================================================
+   Datasheet Reader — simulator-aligned controls and live results
+   ========================================================================== */
+
+/* Reuse the simulator's 380px control rail, gutter, and stacking breakpoint. */
+.ds-workspace > *,
+.ds-results > * {
+  min-width: 0;
+}
+
+.ds-controls .card-header {
+  gap: 0.5rem;
+}
+
+.ds-intake {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ds-dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.25rem 0.75rem;
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.ds-dropzone.is-compact {
+  flex-direction: row;
+  justify-content: center;
+  padding: 0.75rem;
+}
+
+.ds-dropzone.is-compact .ds-dropzone-hint {
+  display: none;
+}
+
+.ds-dropzone:hover,
+.ds-dropzone.is-dragging {
+  border-color: var(--accent-info);
+  background: var(--bg-card-hover);
+}
+
+.ds-dropzone:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.ds-dropzone svg {
+  flex-shrink: 0;
+  color: var(--accent-info);
+}
+
+.ds-dropzone-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ds-dropzone-hint {
+  font-size: 0.8rem;
+}
+
+.ds-intake .field-help {
+  margin: 0;
+}
+
+.ds-intake[aria-busy="true"] .ds-dropzone {
+  cursor: progress;
+  border-style: solid;
+}
+
+.ds-controls:has(#ds-workspace:not([hidden])) > .auto-update-note {
+  display: none;
+}
+
+#ds-column-row {
+  margin-top: 1.25rem;
+}
+
+#ds-column-row .form-label {
+  margin-bottom: 0.4rem;
+}
+
+.ds-module-details {
+  margin-top: 1.25rem;
+  border-block: 1px solid var(--border-subtle);
+}
+
+.ds-module-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-height: 48px;
+  padding: 0.65rem 0;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.ds-module-details > summary .field-help {
+  margin: 0;
+  font-weight: 400;
+}
+
+.ds-module-details[open] {
+  padding-bottom: 1rem;
+}
+
+.ds-module-details .form-label {
+  margin-bottom: 0.4rem;
+}
+
+.ds-module-details .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.ds-values-head {
+  padding-top: 1.25rem;
+}
+
+.ds-values-head h3 {
+  font-size: 0.95rem;
+}
+
+.ds-review-progress {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.85rem 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-spec-group {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ds-spec-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.95rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ds-spec-group > summary::-webkit-details-marker,
+.ds-viewer > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ds-spec-group > summary::after,
+.ds-viewer > summary::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  flex-shrink: 0;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  margin: -0.25rem 0.25rem 0 0.5rem;
+}
+
+.ds-spec-group[open] > summary::after,
+.ds-viewer[open] > summary::after {
+  transform: rotate(225deg);
+  margin-top: 0.25rem;
+}
+
+.ds-group-count {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-group-note {
+  margin: -0.3rem 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.ds-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.ds-table th,
+.ds-table td {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.ds-table tr:last-child > * {
+  border-bottom: none;
+  padding-bottom: 1rem;
+}
+
+.ds-table th {
+  width: 55%;
+  padding-right: 0.75rem;
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.ds-value-control {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ds-input {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.55rem 0.45rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: 600 0.825rem ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-input[data-edited="true"] {
+  border-color: var(--accent-info);
+}
+
+.ds-input:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ds-row-missing .ds-input {
+  border-style: dashed;
+}
+
+.ds-unit {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.ds-alt,
+.ds-source {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.ds-source summary {
+  min-height: 24px;
+  color: var(--uml-light-blue);
+  cursor: pointer;
+}
+
+.ds-source p {
+  padding: 0.35rem 0;
+  overflow-wrap: anywhere;
+}
+
+.ds-source-manual {
+  color: var(--uml-light-blue);
+}
+
+.ds-results {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ds-results-header,
+.ds-viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ds-results-header > div:first-child {
+  flex: 1 1 20rem;
+}
+
+.ds-export-row,
+.ds-page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ds-status,
+.ds-warning {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  color: var(--text-secondary);
+  font-size: 0.825rem;
+  overflow-wrap: anywhere;
+}
+
+.ds-status[data-tone="error"] {
+  border-color: var(--accent-error);
+  color: var(--text-primary);
+}
+
+.ds-warnings {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ds-kpis {
+  margin-bottom: 0;
+}
+
+.ds-kpis .kpi-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin: 0.7rem 0 0.5rem;
+}
+
+.ds-kpis .kpi-unit {
+  margin: 0;
+}
+
+.ds-guide {
+  display: grid;
+  gap: 1.25rem;
+  margin: 1.5rem 0;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.ds-guide li {
+  padding-left: 0.35rem;
+}
+
+.ds-guide li::marker {
+  color: var(--uml-light-blue);
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-guide strong,
+.ds-guide span {
+  display: block;
+}
+
+.ds-guide span {
+  margin-top: 0.25rem;
+  color: var(--text-secondary);
+}
+
+.ds-empty .section-intro {
+  max-width: 70ch;
+}
+
+.ds-viewer > summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.ds-viewer > summary::after {
+  margin-left: auto;
+}
+
+.ds-filename {
+  min-width: 0;
+  flex: 1 1 12rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.ds-viewer-bar {
+  margin: 0.75rem 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ds-page-nav {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+#ds-page-label {
+  min-width: 7.5ch;
+  text-align: center;
+}
+
+#ds-zoom-label {
+  min-width: 4.5ch;
+  text-align: center;
+}
+
+.ds-canvas-wrap {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: white;
+  overflow: auto;
+  max-height: 62vh;
+  min-height: 200px;
+  overscroll-behavior: contain;
+}
+
+#ds-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: none;
+}
+
+.ds-derived .card-header .field-help {
+  margin: 0;
+}
+
+.ds-derived .card-header {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ds-derived-table {
+  font-size: 0.825rem;
+}
+
+.ds-derived-table th[scope="row"] {
+  font-family: inherit;
+  white-space: normal;
+}
+
+.ds-derived-value {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ds-derived-pending,
+.ds-formula {
+  font-size: 0.775rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.ds-formula {
+  white-space: normal;
+  min-width: 18ch;
+}
+
+.ds-checks-list {
+  display: grid;
+  gap: 0.65rem;
+  list-style: none;
+  margin-top: 1rem;
+}
+
+.ds-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.825rem;
+  color: var(--text-secondary);
+}
+
+.ds-check:last-child {
+  border-bottom: 0;
+}
+
+.ds-check-icon {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin-top: 0.1rem;
+}
+
+.ds-check-ok .ds-check-icon {
+  color: var(--accent-success);
+}
+
+.ds-check-warn .ds-check-icon {
+  color: var(--accent-solar);
+}
+
+.ds-mobile-bridge,
+.ds-back-to-inputs {
+  display: none;
+}
+
+#ds-results-heading,
+#ds-values-heading,
+.ds-spec-group {
+  scroll-margin-top: 7rem;
+}
+
+/* The simulator's header exports belong to the calculation tabs, not PDFs. */
+body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (min-width: 761px) and (max-width: 1080px) {
+  body:has(#tab-datasheet[aria-selected="true"]) .header-content {
+    flex-wrap: wrap;
+  }
+
+  body:has(#tab-datasheet[aria-selected="true"]) .nav-tabs {
+    flex-basis: 100%;
+    justify-content: center;
+  }
+
+  body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
+    display: none;
+  }
+}
+
+@media (max-width: 1080px) {
+  .ds-mobile-bridge {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    padding: 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--surface-quiet);
+    font-size: 0.825rem;
+  }
+
+  .ds-mobile-bridge a,
+  .ds-back-to-inputs {
+    padding: 0.4rem 0;
+  }
+
+  .ds-back-to-inputs {
+    display: block;
+    font-size: 0.875rem;
+  }
+
+  #ds-results-heading,
+  #ds-values-heading,
+  .ds-spec-group {
+    scroll-margin-top: 12rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .ds-input {
+    font-size: 1rem;
+  }
+
+  .ds-derived-table {
+    min-width: 0;
+  }
+
+  .ds-derived-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .ds-derived-table tbody,
+  .ds-derived-table tr {
+    display: block;
+  }
+
+  .ds-derived-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35rem 0.75rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .ds-derived-table td,
+  .ds-derived-table th[scope="row"] {
+    padding: 0;
+    border: none;
+  }
+
+  .ds-derived-table .ds-derived-value {
+    text-align: right;
+    white-space: normal;
+    max-width: 15ch;
+  }
+
+  .ds-derived-table .ds-formula {
+    grid-column: 1 / -1;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .ds-page-nav .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .ds-source summary {
+    padding-block: 0.4rem;
+  }
+
+  .ds-canvas-wrap {
+    max-height: 55vh;
+  }
+
+  .ds-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ds-results {
+    gap: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-dropzone {
+    transition: none;
+  }
+}
