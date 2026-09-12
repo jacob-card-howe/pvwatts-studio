@@ -21,6 +21,8 @@ const pvwattsClient = new PVWatts.PVWattsClient();
 
 const SWEEP_CHUNK_SIZE = 7;
 
+const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
 // Chart instances
 let chartMonthlyAc = null;
 let chartMonthlySolrad = null;
@@ -131,25 +133,7 @@ async function copyCalculatedOutput(event) {
 }
 
 async function writeClipboardText(text) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return;
-    } catch (_error) {
-      // Fall through to the older textarea-based clipboard API.
-    }
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  const copied = document.execCommand('copy');
-  textarea.remove();
-  if (!copied) throw new Error('Clipboard copy command was rejected');
+  await navigator.clipboard.writeText(text);
 }
 
 // Initialize Application on DOM Ready
@@ -416,38 +400,21 @@ function initControls() {
   updateAdvancedAvailability();
 
   document.getElementById('btn-reset-defaults').addEventListener('click', () => {
-    document.getElementById('slider-capacity').value = 4.0;
-    document.getElementById('num-capacity').value = 4.0;
+    // form.reset() would also clear the API key and revert the location text
+    // behind the map picker, so preserve those two before resetting.
+    const location = document.getElementById('input-location').value;
+    const apiKey = document.getElementById('input-api-key').value;
+    document.getElementById('system-parameters').reset();
+    document.getElementById('input-location').value = location;
+    document.getElementById('input-api-key').value = apiKey;
+
     document.getElementById('badge-capacity').textContent = '4.0 kW';
-
-    document.getElementById('select-module-type').value = '0';
-    document.getElementById('select-array-type').value = '0';
-
-    document.getElementById('slider-losses').value = 14.08;
-    document.getElementById('num-losses').value = 14.08;
     document.getElementById('badge-losses').textContent = '14.08 %';
-
-    document.getElementById('slider-tilt').value = 20;
-    document.getElementById('num-tilt').value = 20;
     document.getElementById('badge-tilt').textContent = '20 °';
-    updateTiltVisual(20);
-
-    document.getElementById('slider-azimuth').value = 180;
-    document.getElementById('num-azimuth').value = 180;
     document.getElementById('badge-azimuth').textContent = '180 ° (S)';
+    updateAdvancedAvailability();
+    updateTiltVisual(20);
     updateCompassVisual(180);
-
-    document.getElementById('input-dc-ac-ratio').value = 1.2;
-    document.getElementById('input-inv-eff').value = 96.0;
-    document.getElementById('input-gcr').value = 0.4;
-    document.getElementById('select-albedo-mode').value = 'weather';
-    document.getElementById('custom-albedo-field').hidden = true;
-    document.getElementById('input-albedo').value = 0.2;
-    document.getElementById('input-albedo').disabled = true;
-    document.getElementById('select-bifacial').value = 'no';
-    document.getElementById('input-bifaciality').value = 0.7;
-    document.getElementById('input-bifaciality').disabled = true;
-    document.querySelectorAll('.monthly-loss-input').forEach(input => { input.value = 0; });
 
     scheduleSimulation(true);
     showToast('Reset parameters to standard defaults');
@@ -630,14 +597,13 @@ function renderSimulation(res) {
 
   const tbody = document.getElementById('tbody-monthly');
   if (tbody) {
-    const monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     let rowsHtml = '';
     let totalPoaKwh = 0;
     let totalDc = 0;
 
     for (let month = 0; month < 12; month++) {
       const solrad = res.monthlySolrad[month];
-      const poaM2 = res.monthlyPoa?.[month] ?? (solrad * monthDays[month]);
+      const poaM2 = res.monthlyPoa?.[month] ?? (solrad * MONTH_DAYS[month]);
       totalPoaKwh += poaM2;
       totalDc += res.monthlyDc[month];
       rowsHtml += `
@@ -1071,8 +1037,7 @@ function csvCell(value) {
 }
 
 function createMonthlyCsv(res) {
-  const monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  const monthlyPoa = monthDays.map((days, month) => res.monthlyPoa?.[month] ?? (res.monthlySolrad[month] * days));
+  const monthlyPoa = MONTH_DAYS.map((days, month) => res.monthlyPoa?.[month] ?? (res.monthlySolrad[month] * days));
   const rows = [[
     'Month',
     'Solar radiation (kWh/m²/day)',

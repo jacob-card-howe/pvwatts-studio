@@ -10,7 +10,7 @@ The site is plain HTML, CSS, and JavaScript with no backend and no build step. T
 
 ![PVWatts Studio interface](docs/imgs/pvwatts_studio.png)
 
-> **Which calculation path should I use?** The web application is the canonical path. It calls the current public PVWatts v8 service and NSRDB TMY data. The optional command-line engine uses bundled, preprocessed historical station data and is retained for offline comparisons.
+> **Which calculation path should I use?** The web application is the canonical path. It calls the current public PVWatts v8 service and NSRDB TMY data.
 
 ## Quick start
 
@@ -108,27 +108,13 @@ Because there is no backend, every visitor supplies their own key and consumes t
 
 The key remains visible in browser developer tools and is transmitted to NLR as required by the service.
 
-## Optional historical CLI
-
-The CLI runs the retained pure-Python approximation against preprocessed hourly station arrays. It does not call the public API and should not be used when results must match the current public PVWatts calculator.
-
-```bash
-python3 pvwatts_cli.py --location renton_tmy3 --size 4 --tilt 20 --azimuth 180
-python3 pvwatts_cli.py --location seatac_tmy3 --size 6 --json
-python3 pvwatts_cli.py --sweep-tilt --size 6 --losses 11 --azimuth 180
-```
-
-Available station IDs are listed in [`data/catalog.json`](data/catalog.json).
-
-`--weather-file` remains for compatibility with older callers. Its filename is used to select a matching preprocessed station; the CLI does **not** parse arbitrary EPW contents. Commands that referenced the former bundled `weather_data/*.epw` paths continue to resolve to the equivalent preprocessed dataset.
-
 ## Development
 
 Run the complete test suite:
 
 ```bash
 node --test tests/test_pvwatts_client.mjs tests/test_datasheet_parser.mjs
-python3 -m unittest tests.test_static_ui tests.test_legacy_cli -v
+python3 -m unittest tests.test_static_ui -v
 ```
 
 `tests/test_datasheet_parser.mjs` runs the extractor against the text layer of real manufacturer datasheets held in [`tests/fixtures/datasheets/`](tests/fixtures/datasheets/), asserting the exact values printed on those sheets.
@@ -148,10 +134,9 @@ playwright-cli close
 
 This exercises the actual pdf.js loader with a labelled, text-only PDF generated from the REC fixture, plus manual entry, source annotations, unit conversions, column switching, exports, zoom, clear-during-load, and responsive layouts. It stubs PVWatts requests and writes local screenshots/exports under the ignored `.impeccable/review/` directory. The generated PDF is a UI test fixture, not the original manufacturer PDF.
 
-Useful smoke tests:
+Useful smoke test:
 
 ```bash
-python3 pvwatts_cli.py --location renton_tmy3 --json
 python3 -m http.server -d static 8000
 ```
 
@@ -168,17 +153,12 @@ When changing request or response fields, update the client tests and the browse
 | [`static/datasheet_parser.js`](static/datasheet_parser.js) | Datasheet text-layer extraction, plausibility ranges, and derived metrics |
 | [`static/datasheet.js`](static/datasheet.js) | Datasheet tab: PDF loading, page rendering, editable table, and exports |
 | [`static/styles.css`](static/styles.css) | Interface styling |
-| [`tests/`](tests/) | Client, browser-markup, and legacy CLI regression tests |
-| [`pvwatts_cli.py`](pvwatts_cli.py) | Optional historical-weather command-line interface |
-| [`pvwatts_fast.py`](pvwatts_fast.py) | Optional pure-Python historical calculation engine |
-| [`data/`](data/) | Preprocessed hourly arrays required by the historical engine |
+| [`tests/`](tests/) | Client and browser-markup regression tests |
 
 ### Data footprint policy
 
 Only data required at runtime is tracked:
 
-- `data/*.json` supports the optional historical CLI and engine. It sits outside `static/` so it is not part of the deployed site.
-- Raw EPW bundles are not required because the historical engine reads the preprocessed JSON arrays directly.
 - Copies of SSC source are not required because the web application calls the hosted PVWatts API and does not compile SSC locally.
 
 - `tests/fixtures/datasheets/*.json` are text layers, not PDFs: only the strings and their positions are kept, at roughly 40 KB each, and they sit outside `static/`. They exist because the datasheet reader's accuracy claim is only meaningful when it is asserted against real published sheets.

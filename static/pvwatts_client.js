@@ -170,27 +170,8 @@ function normalizePvwattsResponse(payload, inputs) {
     monthlyPoa: poaMonthly,
     monthNames: MONTH_NAMES,
     stationInfo: payload.station_info || {},
-    warnings: payload.warnings || [],
     version: payload.version || '8',
-    model: 'Official PVWatts v8 (SSC pvwattsv8)',
-    dataset: 'NSRDB',
-    parameters: {
-      systemCapacityKw: capacity,
-      moduleType: inputs.module_type,
-      arrayType: inputs.array_type,
-      losses: inputs.losses,
-      tilt: inputs.tilt,
-      azimuth: inputs.azimuth,
-      dcAcRatio: inputs.dc_ac_ratio,
-      invEff: inputs.inv_eff,
-      groundCoverageRatio: inputs.gcr,
-      useWeatherFileAlbedo: Boolean(inputs.use_wf_albedo),
-      albedo: inputs.albedo === null ? null : Number(inputs.albedo),
-      bifaciality: inputs.bifaciality,
-      monthlyIrradianceLosses: inputs.soiling.map(Number),
-      lat: inputs.lat,
-      lon: inputs.lon
-    }
+    model: 'Official PVWatts v8 (SSC pvwattsv8)'
   };
 }
 
@@ -381,9 +362,7 @@ const PVWatts = {
   searchLocations,
   validateSimulationParams,
   normalizePvwattsResponse,
-  MONTH_NAMES,
-  PVWATTS_API_URL,
-  GEOCODER_URL
+  PVWATTS_API_URL
 };
 
 if (typeof window !== 'undefined') window.PVWatts = PVWatts;

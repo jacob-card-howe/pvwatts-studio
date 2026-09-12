@@ -956,23 +956,11 @@ function extractDatasheet(pages, options = {}) {
 
 const DatasheetParser = {
   buildRows,
-  fromTextContent,
-  findCellCount,
-  findDimensions,
-  findPowerTolerance,
   extractDatasheet,
   toValues,
   computeMetrics,
   powerToleranceBounds,
-  parseDimensions,
-  parseWeight,
-  crossChecks,
-  moduleArea,
   looksLikeValue,
-  valueColumns,
-  normalize,
-  labelKey,
-  FIELDS,
   MM_PER_INCH,
   KG_PER_LB
 };

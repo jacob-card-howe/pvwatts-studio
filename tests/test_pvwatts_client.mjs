@@ -143,10 +143,7 @@ test('the response is normalized to the shape the UI renders', async () => {
   assert.equal(result.monthlyPoa.length, 12);
   assert.equal(result.monthNames[0], 'Jan');
   assert.equal(result.version, '8.5.0');
-  assert.equal(result.dataset, 'NSRDB');
   assert.deepEqual(result.stationInfo, { lat: 47.5, lon: -122.2 });
-  assert.equal(result.parameters.tilt, 20.0);
-  assert.equal(result.parameters.useWeatherFileAlbedo, true);
 });
 
 test('identical simulations are served from the cache', async () => {
