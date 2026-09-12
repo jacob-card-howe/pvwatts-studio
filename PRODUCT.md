@@ -28,6 +28,7 @@ The browser application is the canonical calculation path. The retained command-
 - Address, place, postal-code, and latitude/longitude search.
 - Standard and advanced model inputs, including system size, module and array types, losses, tilt, azimuth, DC/AC ratio, inverter efficiency, ground coverage ratio, albedo, bifaciality, and monthly irradiance losses.
 - Monthly and annual production, solar resource, capacity factor, energy yield, weather-grid metadata, JSON/CSV exports, and a 77-case tilt/azimuth comparison.
+- A module datasheet reader that extracts specifications from a manufacturer PDF in the browser, renders the source page beside an editable table, cross-checks independently stated values, and computes module area, efficiency, fill factor, power-tolerance bounds, and the NOCT-versus-STC power difference. Extraction is presented as a reading aid to be confirmed, never as an authority; values that cannot be located are left blank rather than guessed. Inverter datasheets are out of scope for now.
 - Python 3.10+ with no third-party package installation; the application uses the Python standard library and a plain HTML/CSS/JavaScript frontend.
 - Internet access is required for geocoding, Chart.js, and canonical PVWatts calculations.
 - API quotas are an operating constraint. The shared `DEMO_KEY` can return rate-limit errors, and a full comparison can consume up to 77 PVWatts requests.
@@ -49,6 +50,7 @@ The UMass Lowell-derived color scheme currently defined in `static/styles.css` i
 - `static/app.js`: interactive behavior, request lifecycle, current charts, comparison logic, exports, and session-only API-key handling.
 - `static/pvwatts_client.js`: official-service integration, validation rules, caching, geocoding, and error behavior.
 - `tests/`: automated evidence for adapter normalization, HTTP behavior, static UI commitments, browser key handling, and the legacy CLI boundary.
+- `tests/fixtures/datasheets/`: text layers of published Silfab, REC, and Canadian Solar module datasheets, used to assert the reader returns the exact values those sheets print.
 - `docs/imgs/pvwatts_studio.png`: a committed screenshot of the current interface.
 - No testimonials, customer adoption evidence, production-deployment claims, or comparative usability study are present; future work must not fabricate them.
 

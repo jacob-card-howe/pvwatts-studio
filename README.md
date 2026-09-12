@@ -50,6 +50,7 @@ Both upstream services send `Access-Control-Allow-Origin: *` on success and on e
 - Monthly and annual production, solar resource, capacity factor, and weather-grid metadata
 - JSON and CSV exports
 - A 77-combination tilt/azimuth parametric sweep
+- A module datasheet reader that pulls specifications out of a manufacturer PDF into an editable table and works the standard datasheet calculations
 - Debounced updates, stale-request cancellation, and in-memory calculation caching
 
 ## How it works
@@ -67,6 +68,37 @@ Location text
 [`static/pvwatts_client.js`](static/pvwatts_client.js) validates inputs in the browser, requests `dataset=nsrdb`, `radius=0`, and `timeframe=monthly` from PVWatts, and normalizes the response into the shape the interface renders.
 
 A normal update costs one PVWatts request unless an identical calculation is served from the in-memory cache. A full parametric sweep can cost up to 77 requests, so use a personal developer key for batch studies.
+
+## Datasheet reader
+
+The **Datasheet Reader** tab opens a PV module specification sheet, finds the page carrying the specification tables, and fills an editable table with the values it recognises. The PDF is read in the browser through [pdf.js](https://mozilla.github.io/pdf.js/); nothing is uploaded and the panel makes no API requests.
+
+Extraction is a reading aid, not an authority. Three things keep a wrong number from reaching a calculation:
+
+1. **The source page sits beside the table.** Every filled value also names the datasheet row it was taken from, so confirming it is a glance rather than a hunt.
+2. **Implausible candidates are rejected.** Each specification carries the range it can physically occupy, so a dimension callout or a neighbouring table that happens to land in the same PDF row is discarded instead of reported. A value that cannot be located is left blank and flagged — the reader never guesses.
+3. **Independently stated numbers are cross-checked.** Pmax against Vmp x Imp, the stated module efficiency against Pmax divided by area, NOCT power against STC power, and the fill factor against the range a real module occupies. A disagreement names the rows to re-read.
+4. **A second electrical block is only called NOCT when it states less power.** NOCT is measured at 800 W/m², so its power is always lower than STC. A sheet whose second block states *more* power is publishing bifacial gain (BNPI/BSTC), and it is labelled as such instead — reading it as NOCT would corrupt every NOCT-based result.
+
+Every field is editable, and the calculations always run on the table as it stands rather than on the extraction:
+
+| Quantity | Formula |
+| --- | --- |
+| Module area | height x length |
+| Module efficiency | Pmax / (area x 1000 W/m²) x 100 |
+| Fill factor (STC and NOCT) | (Vmp x Imp) / (Voc x Isc) |
+| Minimum and maximum power | Pmax plus the stated power tolerance, in watts or percent |
+| Power difference, NOCT vs STC | (high - low) / high x 100 |
+
+Sheets that lay each specification out as a labelled row are read in full, including sheets that list several power classes in shared rows — a column picker selects the module and swaps every per-class value at once, while ratings stated once for the whole sheet stay put. Sheets that transpose the electrical table so models are rows and quantities are wrapped multi-line column headers (Canadian Solar) yield the mechanical and ratings blocks only; the electrical cells stay blank for manual entry rather than being guessed.
+
+The extractor is verified against the published sheets for Silfab SIL-530 XM Bifacial, REC N-Peak 3 Black (390/400 W), Qcells Q.PEAK DUO ML-G12S (650–675 W), and Canadian Solar CS6.2-66TB.
+
+The reader follows the System Simulator’s inputs-left, results-right layout. Specifications are grouped into expandable electrical, temperature, ratings, and mechanical sections. **Next blank** opens and focuses the next required value; each **Datasheet row** disclosure shows the full original source text. Editing a value updates its source annotation, unit conversion, calculations, and headline measurements immediately.
+
+The same table works without a PDF — **Enter values manually** opens it empty, for figures given in a problem rather than read off a sheet. Manufacturer and model are under **Module details**. The source PDF has page navigation, zoom, and **Fit width**, and can be collapsed to bring calculations closer. On smaller screens, a results link connects the inputs to the overview, and calculation rows keep their result and formula visible without horizontal scrolling.
+
+Results export as JSON or CSV from the overview heading, including each value's source, the calculations, and the outcome of every consistency check. Exports become available when at least one specification has a value.
 
 ## API key handling
 
@@ -95,11 +127,26 @@ Available station IDs are listed in [`data/catalog.json`](data/catalog.json).
 Run the complete test suite:
 
 ```bash
-node --test tests/test_pvwatts_client.mjs
+node --test tests/test_pvwatts_client.mjs tests/test_datasheet_parser.mjs
 python3 -m unittest tests.test_static_ui tests.test_legacy_cli -v
 ```
 
+`tests/test_datasheet_parser.mjs` runs the extractor against the text layer of real manufacturer datasheets held in [`tests/fixtures/datasheets/`](tests/fixtures/datasheets/), asserting the exact values printed on those sheets.
+
 The tests stub the upstream responses and parse coordinates locally, so they do not consume API quota.
+
+For the reader’s browser regression and desktop/mobile screenshot pass, use Playwright CLI with a local static server on port 8765:
+
+```bash
+python3 tests/make_datasheet_pdf.py .impeccable/review/rec-text-fixture.pdf
+python3 -m http.server --bind 127.0.0.1 -d static 8765
+# In a second terminal:
+playwright-cli open
+playwright-cli run-code --filename=tests/datasheet_browser.js
+playwright-cli close
+```
+
+This exercises the actual pdf.js loader with a labelled, text-only PDF generated from the REC fixture, plus manual entry, source annotations, unit conversions, column switching, exports, zoom, clear-during-load, and responsive layouts. It stubs PVWatts requests and writes local screenshots/exports under the ignored `.impeccable/review/` directory. The generated PDF is a UI test fixture, not the original manufacturer PDF.
 
 Useful smoke tests:
 
@@ -118,6 +165,8 @@ When changing request or response fields, update the client tests and the browse
 | [`static/index.html`](static/index.html) | Browser interface |
 | [`static/pvwatts_client.js`](static/pvwatts_client.js) | Official v8 adapter, input validation, geocoder, and cache |
 | [`static/app.js`](static/app.js) | Controls, charts, exports, and parametric sweep logic |
+| [`static/datasheet_parser.js`](static/datasheet_parser.js) | Datasheet text-layer extraction, plausibility ranges, and derived metrics |
+| [`static/datasheet.js`](static/datasheet.js) | Datasheet tab: PDF loading, page rendering, editable table, and exports |
 | [`static/styles.css`](static/styles.css) | Interface styling |
 | [`tests/`](tests/) | Client, browser-markup, and legacy CLI regression tests |
 | [`pvwatts_cli.py`](pvwatts_cli.py) | Optional historical-weather command-line interface |
@@ -132,7 +181,9 @@ Only data required at runtime is tracked:
 - Raw EPW bundles are not required because the historical engine reads the preprocessed JSON arrays directly.
 - Copies of SSC source are not required because the web application calls the hosted PVWatts API and does not compile SSC locally.
 
-Keep downloaded weather bundles, generated export formats, and source-code reference copies outside the repository. The ignore rules cover the former local artifact paths to prevent accidental reintroduction.
+- `tests/fixtures/datasheets/*.json` are text layers, not PDFs: only the strings and their positions are kept, at roughly 40 KB each, and they sit outside `static/`. They exist because the datasheet reader's accuracy claim is only meaningful when it is asserted against real published sheets.
+
+Keep downloaded weather bundles, manufacturer PDFs, generated export formats, and source-code reference copies outside the repository. The ignore rules cover the former local artifact paths to prevent accidental reintroduction.
 
 ## Location search and attribution
 

@@ -31,6 +31,8 @@ class TestStaticUI(unittest.TestCase):
         cls.javascript = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
         cls.styles = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
         cls.client = (ROOT / "static" / "pvwatts_client.js").read_text(encoding="utf-8")
+        cls.datasheet = (ROOT / "static" / "datasheet.js").read_text(encoding="utf-8")
+        cls.datasheet_parser = (ROOT / "static" / "datasheet_parser.js").read_text(encoding="utf-8")
 
     def test_root_canvas_uses_the_page_background_during_overscroll(self):
         self.assertRegex(
@@ -242,6 +244,114 @@ class TestStaticUI(unittest.TestCase):
         self.assertGreaterEqual(self.javascript.count("clearDisplayedResults();"), 2)
         self.assertIn(".results-area.is-updating", self.styles)
 
+    def test_datasheet_reader_is_a_third_workspace_tab(self):
+        tag, attributes = self.parser.elements_by_id["tab-datasheet"]
+        self.assertEqual(tag, "button")
+        self.assertEqual(attributes["role"], "tab")
+        self.assertEqual(attributes["aria-controls"], "datasheet-tab")
+        self.assertEqual(attributes["aria-selected"], "false")
+        self.assertEqual(attributes["tabindex"], "-1")
+
+        panel_tag, panel = self.parser.elements_by_id["datasheet-tab"]
+        self.assertEqual(panel_tag, "div")
+        self.assertEqual(panel["role"], "tabpanel")
+        self.assertEqual(panel["aria-labelledby"], "tab-datasheet")
+        self.assertIn("hidden", panel)
+
+        # The reader sits next to Parametric Studio in the tab strip.
+        self.assertLess(self.html.index('id="tab-parametric"'), self.html.index('id="tab-datasheet"'))
+
+    def test_datasheet_pdfs_stay_in_the_browser_and_use_no_api_quota(self):
+        self.assertIn("await file.arrayBuffer()", self.datasheet)
+        self.assertNotIn("FormData", self.datasheet)
+        for forbidden in ("fetch(", "XMLHttpRequest", "pvwattsClient", "developer.nlr.gov"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, self.datasheet)
+        self.assertIn("Nothing is uploaded", self.html)
+
+    def test_pdf_reader_is_loaded_lazily_from_a_pinned_version(self):
+        self.assertIn("const PDFJS_VERSION = '4.7.76'", self.datasheet)
+        self.assertIn("pdfjs-dist@${PDFJS_VERSION}", self.datasheet)
+        self.assertIn("import(/* webpackIgnore: true */", self.datasheet)
+        # The library must not be pulled in on first paint.
+        self.assertNotIn("pdfjs-dist", self.html)
+
+    def test_every_extracted_value_is_editable_and_names_its_source_row(self):
+        self.assertIn("input.className = 'ds-input'", self.datasheet)
+        self.assertIn("input.addEventListener('input'", self.datasheet)
+        self.assertIn("datasheetState.edited.add(row.key)", self.datasheet)
+        self.assertIn("function sourceFor(", self.datasheet)
+        self.assertIn("Not found \u2014 read it from the page", self.datasheet)
+        self.assertIn("ds-row-missing", self.styles)
+        # Calculations must follow the edited table, never the raw extraction.
+        self.assertIn("DatasheetParser.computeMetrics(datasheetState.values)", self.datasheet)
+
+    def test_the_source_page_is_rendered_beside_the_values_for_checking(self):
+        self.assertIn('id="ds-canvas"', self.html)
+        self.assertIn("Check every value against this page", self.html)
+        self.assertIn("page.render({ canvasContext: context, viewport })", self.datasheet)
+        self.assertIn('class="sim-grid ds-workspace"', self.html)
+        self.assertIn("grid-template-columns: 380px 1fr", self.styles)
+        self.assertLess(self.html.index('class="card ds-controls"'), self.html.index('id="ds-results"'))
+
+    def test_implausible_values_are_rejected_rather_than_reported(self):
+        self.assertIn("function inRange(field, value)", self.datasheet_parser)
+        self.assertIn("const accepted = candidates.filter(candidate => candidate.ok)", self.datasheet_parser)
+        self.assertIn("function crossChecks(values)", self.datasheet_parser)
+        for label in ("Pmax vs Vmp x Imp (STC)", "Efficiency: datasheet vs Pmax / area"):
+            with self.subTest(label=label):
+                self.assertIn(label, self.datasheet_parser)
+
+    def test_the_calculations_are_usable_without_a_pdf(self):
+        self.assertIn('id="ds-manual"', self.html)
+        self.assertIn("function startManualEntry()", self.datasheet)
+        self.assertIn("dsElement('ds-viewer').hidden = true", self.datasheet)
+        # Manual entry retains the same inputs-to-results layout as a PDF.
+        self.assertIn("setDatasheetWorkspace(true)", self.datasheet)
+        self.assertIn("dsElement('ds-derived').hidden = !active", self.datasheet)
+
+    def test_datasheet_overview_exports_and_navigation_are_accessible(self):
+        for key in ("power", "efficiency", "area", "fill-factor"):
+            self.assertIn(f'ds-kpi-{key}', self.parser.elements_by_id)
+        for key in ("ds-export-csv", "ds-export-json", "ds-clear"):
+            tag, attrs = self.parser.elements_by_id[key]
+            self.assertEqual(tag, "button")
+            self.assertIn("disabled", attrs)
+        self.assertLess(self.html.index('id="ds-export-csv"'), self.html.index('id="ds-viewer"'))
+        self.assertIn('href="#ds-results-heading"', self.html)
+        self.assertIn("input.closest('.ds-spec-group').open = true", self.datasheet)
+        self.assertIn('id="ds-zoom-reset"', self.html)
+
+    def test_datasheet_groups_preserve_native_disclosures_and_live_provenance(self):
+        self.assertIn("group = document.createElement('details')", self.datasheet)
+        self.assertIn("caption.textContent = `${row.group}", self.datasheet)
+        self.assertIn("text.textContent = sourceText", self.datasheet)
+        self.assertIn("updateAnnotations();", self.datasheet)
+        self.assertIn("updateDatasheetSummary(metrics)", self.datasheet)
+        self.assertIn("const hint = isFilled(currentValue) ? alternateUnit(row, currentValue) : null", self.datasheet)
+        self.assertNotIn("-webkit-line-clamp", self.styles)
+        self.assertIn("input.setAttribute('aria-describedby', source.id)", self.datasheet)
+
+    def test_clearing_or_replacing_a_datasheet_invalidates_pending_loads(self):
+        self.assertIn("loadSequence: 0", self.datasheet)
+        self.assertIn("const sequence = ++datasheetState.loadSequence", self.datasheet)
+        self.assertIn("datasheetState.loadSequence += 1", self.datasheet)
+        self.assertIn("datasheetState.renderSequence += 1", self.datasheet)
+        self.assertIn("datasheetState.zoom = 1", self.datasheet)
+        self.assertIn("new ResizeObserver", self.datasheet)
+
+    def test_overlapping_page_renders_cannot_show_the_wrong_page(self):
+        # The whole workflow is "check this value against the page shown", so a
+        # slower earlier render must never paint over a newer one.
+        self.assertIn("renderSequence: 0", self.datasheet)
+        self.assertIn("const sequence = ++datasheetState.renderSequence", self.datasheet)
+        self.assertIn("const current = () => sequence === datasheetState.renderSequence", self.datasheet)
+        self.assertIn("if (!current()) return;", self.datasheet)
+
+    def test_datasheet_scripts_load_after_their_dependencies(self):
+        self.assertLess(self.html.index('src="datasheet_parser.js"'), self.html.index('src="datasheet.js"'))
+        self.assertIn('<script src="datasheet_parser.js"></script>', self.html)
+        self.assertIn('<script src="datasheet.js"></script>', self.html)
 
 if __name__ == "__main__":
     unittest.main()
