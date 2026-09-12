@@ -40,6 +40,12 @@ class TestStaticUI(unittest.TestCase):
             r"html\s*\{[^}]*background-color:\s*var\(--bg-primary\)",
         )
 
+    def test_workspace_backdrop_is_viewport_anchored_across_tabs(self):
+        self.assertRegex(
+            self.styles,
+            r"body::before\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*background:\s*var\(--workspace-backdrop\)",
+        )
+
     def test_umass_lowell_palette_styles_the_ui_and_parametric_chart(self):
         official_palette = {
             "blue": "#1257D1",
@@ -152,7 +158,9 @@ class TestStaticUI(unittest.TestCase):
             "kpi-capacity-factor",
             "kpi-yield",
         )
-        self.assertEqual(self.html.count('class="copy-output-btn"'), len(output_ids))
+        self.assertEqual(self.html.count('class="copy-output-btn"'), len(output_ids) * 2)
+        simulator_panel = self.html.split('id="simulator-tab"', 1)[1].split('id="parametric-tab"', 1)[0]
+        self.assertEqual(simulator_panel.count('class="copy-output-btn"'), len(output_ids))
         for output_id in output_ids:
             with self.subTest(output_id=output_id):
                 self.assertRegex(
@@ -163,7 +171,7 @@ class TestStaticUI(unittest.TestCase):
             tag, attributes = self.parser.elements_by_id[export_id]
             self.assertEqual(tag, "button")
             self.assertIn("disabled", attributes)
-        self.assertIn("navigator.clipboard?.writeText", self.javascript)
+        self.assertIn("navigator.clipboard.writeText", self.javascript)
         self.assertIn("function setResultActionsEnabled(enabled)", self.javascript)
 
     def test_parametric_sweep_is_batched_cancellable_and_accessible(self):

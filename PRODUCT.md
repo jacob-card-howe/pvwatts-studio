@@ -18,9 +18,7 @@ PVWatts Studio is an independent educational interface for the official PVWatts 
 
 ## Operating Context
 
-Users run a local Python server, open the browser application, choose a location, enter standard or advanced PV system assumptions, and review annual and monthly performance outputs. They can copy headline values, export JSON or CSV results, and run a 77-combination tilt/azimuth study. Location search uses OpenStreetMap Nominatim; production estimates use the hosted PVWatts service. A personal NLR developer API key can be entered for the browser session or supplied to the local server when shared `DEMO_KEY` limits are insufficient.
-
-The browser application is the canonical calculation path. The retained command-line engine uses bundled preprocessed historical station data and exists only for offline comparison; it is not the authoritative path when results must match the current public PVWatts calculator.
+Users run a local Python server, open the browser application, choose a location, enter standard or advanced PV system assumptions, and review annual and monthly performance outputs. They can copy headline values, export JSON or CSV results, and run a 77-combination tilt/azimuth study. Location search uses OpenStreetMap Nominatim; production estimates use the hosted PVWatts service. A personal NLR developer API key can be entered for the browser session when shared `DEMO_KEY` limits are insufficient.
 
 ## Capabilities and Constraints
 
@@ -49,7 +47,7 @@ The UMass Lowell-derived color scheme currently defined in `static/styles.css` i
 - `static/index.html`: current product copy, complete input and output structure, exports, comparison workflow, attribution, and visible disclaimer.
 - `static/app.js`: interactive behavior, request lifecycle, current charts, comparison logic, exports, and session-only API-key handling.
 - `static/pvwatts_client.js`: official-service integration, validation rules, caching, geocoding, and error behavior.
-- `tests/`: automated evidence for adapter normalization, HTTP behavior, static UI commitments, browser key handling, and the legacy CLI boundary.
+- `tests/`: automated evidence for adapter normalization, HTTP behavior, static UI commitments, and browser key handling.
 - `tests/fixtures/datasheets/`: text layers of published Silfab, REC, and Canadian Solar module datasheets, used to assert the reader returns the exact values those sheets print.
 - `docs/imgs/pvwatts_studio.png`: a committed screenshot of the current interface.
 - No testimonials, customer adoption evidence, production-deployment claims, or comparative usability study are present; future work must not fabricate them.

@@ -282,6 +282,10 @@ function updateDatasheetSummary(metrics) {
   const canExport = Object.values(values).some(isFilled);
   dsElement('ds-export-csv').disabled = !canExport;
   dsElement('ds-export-json').disabled = !canExport;
+  document.querySelectorAll('.ds-kpis .copy-output-btn').forEach(btn => {
+    btn.disabled = !canExport;
+    btn.title = canExport ? btn.dataset.defaultTitle : 'Available after calculation';
+  });
 }
 
 function focusNextMissingValue() {
@@ -742,21 +746,9 @@ function exportPayload() {
   };
 }
 
-function csvCell(value) {
-  const text = value === null || value === undefined ? '' : String(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
 function downloadDatasheetFile(name, contents, type) {
-  const blob = new Blob([contents], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  // csvCell and downloadBlob are shared with app.js, which loads first.
+  downloadBlob(new Blob([contents], { type }), name);
 }
 
 function datasheetBaseName() {

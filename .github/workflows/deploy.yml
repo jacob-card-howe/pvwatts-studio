@@ -32,8 +32,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Test the browser markup and the legacy CLI
-        run: python -m unittest tests.test_static_ui tests.test_legacy_cli -v
+      - name: Test the browser markup
+        run: python -m unittest tests.test_static_ui -v
 
   deploy:
     needs: test

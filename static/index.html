@@ -12,6 +12,14 @@
 <body>
   <a class="skip-link" href="#main-content">Skip to calculator</a>
 
+  <!-- Shared icon definitions; referenced with <use href="#icon-copy"> -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display: none;" aria-hidden="true">
+    <symbol id="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </symbol>
+  </svg>
+
   <!-- App Header -->
   <header class="app-header">
     <div class="header-content">
@@ -330,10 +338,7 @@
               <div class="kpi-value-row">
                 <div class="kpi-value"><span id="kpi-ac-annual">—</span><span class="kpi-unit">kWh</span></div>
                 <button class="copy-output-btn" type="button" data-copy-target="kpi-ac-annual" aria-label="Copy annual AC energy" title="Available after calculation" disabled>
-                  <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
+                  <svg class="copy-output-icon" width="16" height="16" aria-hidden="true"><use href="#icon-copy"></use></svg>
                   <span class="sr-only">Copy annual AC energy</span>
                 </button>
               </div>
@@ -345,10 +350,7 @@
               <div class="kpi-value-row">
                 <div class="kpi-value"><span id="kpi-solrad-annual">—</span><span class="kpi-unit">kWh/m²/d</span></div>
                 <button class="copy-output-btn" type="button" data-copy-target="kpi-solrad-annual" aria-label="Copy solar radiation" title="Available after calculation" disabled>
-                  <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
+                  <svg class="copy-output-icon" width="16" height="16" aria-hidden="true"><use href="#icon-copy"></use></svg>
                   <span class="sr-only">Copy solar radiation</span>
                 </button>
               </div>
@@ -360,10 +362,7 @@
               <div class="kpi-value-row">
                 <div class="kpi-value"><span id="kpi-capacity-factor">—</span><span class="kpi-unit">%</span></div>
                 <button class="copy-output-btn" type="button" data-copy-target="kpi-capacity-factor" aria-label="Copy capacity factor" title="Available after calculation" disabled>
-                  <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"></path>
-                  </svg>
+                  <svg class="copy-output-icon" width="16" height="16" aria-hidden="true"><use href="#icon-copy"></use></svg>
                   <span class="sr-only">Copy capacity factor</span>
                 </button>
               </div>
@@ -375,10 +374,7 @@
               <div class="kpi-value-row">
                 <div class="kpi-value"><span id="kpi-yield">—</span><span class="kpi-unit">kWh/kW</span></div>
                 <button class="copy-output-btn" type="button" data-copy-target="kpi-yield" aria-label="Copy energy yield" title="Available after calculation" disabled>
-                  <svg class="copy-output-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"></path>
-                  </svg>
+                  <svg class="copy-output-icon" width="16" height="16" aria-hidden="true"><use href="#icon-copy"></use></svg>
                   <span class="sr-only">Copy energy yield</span>
                 </button>
               </div>
@@ -604,22 +600,46 @@
           <div class="kpi-row ds-kpis" aria-label="Module measurements">
             <div class="kpi-card">
               <h3 class="kpi-label">Rated power · STC</h3>
-              <div class="kpi-value"><span id="ds-kpi-power">—</span><span class="kpi-unit">W</span></div>
+              <div class="kpi-value-row">
+                <div class="kpi-value"><span id="ds-kpi-power">—</span><span class="kpi-unit">W</span></div>
+                <button class="copy-output-btn" type="button" data-copy-target="ds-kpi-power" aria-label="Copy rated power" title="Available after calculation" disabled>
+                  <svg class="copy-output-icon" width="16" height="16" aria-hidden="true"><use href="#icon-copy"></use></svg>
+                  <span class="sr-only">Copy rated power</span>
+                </button>
+              </div>
               <p class="kpi-subtext">Maximum power at standard test conditions.</p>
             </div>
             <div class="kpi-card">
               <h3 class="kpi-label">Module efficiency</h3>
-              <div class="kpi-value"><span id="ds-kpi-efficiency">—</span><span class="kpi-unit">%</span></div>
+              <div class="kpi-value-row">
+                <div class="kpi-value"><span id="ds-kpi-efficiency">—</span><span class="kpi-unit">%</span></div>
+                <button class="copy-output-btn" type="button" data-copy-target="ds-kpi-efficiency" aria-label="Copy module efficiency" title="Available after calculation" disabled>
+                  <svg class="copy-output-icon" width="16" height="16" aria-hidden="true"><use href="#icon-copy"></use></svg>
+                  <span class="sr-only">Copy module efficiency</span>
+                </button>
+              </div>
               <p class="kpi-subtext">From rated power and overall module area.</p>
             </div>
             <div class="kpi-card">
               <h3 class="kpi-label">Module area</h3>
-              <div class="kpi-value"><span id="ds-kpi-area">—</span><span class="kpi-unit">m²</span></div>
+              <div class="kpi-value-row">
+                <div class="kpi-value"><span id="ds-kpi-area">—</span><span class="kpi-unit">m²</span></div>
+                <button class="copy-output-btn" type="button" data-copy-target="ds-kpi-area" aria-label="Copy module area" title="Available after calculation" disabled>
+                  <svg class="copy-output-icon" width="16" height="16" aria-hidden="true"><use href="#icon-copy"></use></svg>
+                  <span class="sr-only">Copy module area</span>
+                </button>
+              </div>
               <p class="kpi-subtext">Overall height × length, including the frame.</p>
             </div>
             <div class="kpi-card">
               <h3 class="kpi-label">Fill factor · STC</h3>
-              <div class="kpi-value"><span id="ds-kpi-fill-factor">—</span></div>
+              <div class="kpi-value-row">
+                <div class="kpi-value"><span id="ds-kpi-fill-factor">—</span></div>
+                <button class="copy-output-btn" type="button" data-copy-target="ds-kpi-fill-factor" aria-label="Copy fill factor" title="Available after calculation" disabled>
+                  <svg class="copy-output-icon" width="16" height="16" aria-hidden="true"><use href="#icon-copy"></use></svg>
+                  <span class="sr-only">Copy fill factor</span>
+                </button>
+              </div>
               <p class="kpi-subtext">Maximum-power output relative to Voc × Isc.</p>
             </div>
           </div>
