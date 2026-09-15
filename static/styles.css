@@ -1105,19 +1105,38 @@ body::before {
   color: var(--text-secondary);
 }
 
-.footer-github {
+.footer-links {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem 1.25rem;
+  margin-top: 0.75rem;
+}
+
+.footer-github,
+.footer-news-button {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  margin-top: 0.75rem;
+  padding: 0.15rem 0;
+  background: none;
+  border: none;
   color: var(--text-muted);
+  font-family: inherit;
   font-size: 0.8rem;
   text-decoration: none;
 }
 
+.footer-news-button {
+  cursor: pointer;
+}
+
 .footer-github:hover,
-.footer-github:focus-visible {
+.footer-github:focus-visible,
+.footer-news-button:hover,
+.footer-news-button:focus-visible {
   color: var(--text-primary);
   text-decoration: underline;
 }
@@ -2457,6 +2476,244 @@ body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
 
 @media (prefers-reduced-motion: reduce) {
   .ds-dropzone {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   Solar News workspace
+
+   A dense headline list in the spirit of the Brutalist Report: timestamps in
+   the monospace readout voice, headlines in the interface voice, and one
+   quiet hairline between rows. Filters are the only chrome.
+   ========================================================================== */
+
+.news-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.news-masthead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.news-updated {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.news-intro {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  max-width: 82ch;
+}
+
+.news-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.news-filter-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.news-filter-label {
+  flex: 0 0 auto;
+  width: 4.25rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.news-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.news-chip {
+  min-height: 26px;
+  padding: 0.2rem 0.55rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.news-chip:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.news-chip[aria-pressed="true"] {
+  background: var(--accent-brand);
+  border-color: var(--accent-brand);
+  color: var(--text-primary);
+  box-shadow: 0 0 12px var(--accent-brand-glow);
+}
+
+.news-filter-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.news-search {
+  flex: 1 1 14rem;
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.82rem;
+}
+
+.news-search::placeholder {
+  color: var(--text-muted);
+}
+
+.news-status,
+.news-empty {
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+}
+
+.news-unavailable {
+  color: var(--text-muted);
+}
+
+.news-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.news-item {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 0.3rem 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.news-item:first-child {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.news-item-when {
+  padding-top: 0.15rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.news-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.news-item-headline {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.news-item-headline:hover,
+.news-item-headline:focus-visible {
+  color: var(--uml-light-blue);
+  text-decoration: underline;
+}
+
+.news-item-summary {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.news-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+}
+
+.news-item-category {
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.news-item-source {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 760px) {
+  .news-filter-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .news-filter-label {
+    width: auto;
+  }
+
+  .news-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+  }
+
+  .news-updated {
+    text-align: left;
+  }
+
+  .news-search,
+  .news-chip {
+    min-height: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  .news-chip,
+  .news-search {
+    border: 1px solid CanvasText;
+  }
+
+  .news-chip[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .news-chip {
     transition: none;
   }
 }

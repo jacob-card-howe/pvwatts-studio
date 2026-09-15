@@ -166,6 +166,9 @@ function initTabs() {
       }
     });
     if (tab.id === 'tab-parametric') updateSweepAssumptions();
+    // Panels with their own loader (Solar News) follow activation without
+    // being coupled to this function.
+    window.dispatchEvent(new CustomEvent('pvwatts:tabchange', { detail: { tab: tab.id } }));
     if (moveFocus) tab.focus();
   };
 
