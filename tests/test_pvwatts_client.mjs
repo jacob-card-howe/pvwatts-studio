@@ -108,11 +108,32 @@ test('the request carries the canonical dataset parameters and the API key', asy
   const url = new URL(calls[0]);
   assert.equal(`${url.origin}${url.pathname}`, PVWATTS_API_URL);
   assert.equal(url.searchParams.get('api_key'), 'test-key');
-  assert.equal(url.searchParams.get('dataset'), 'nsrdb');
+  assert.equal(url.searchParams.get('dataset'), 'tmy3');
   assert.equal(url.searchParams.get('radius'), '0');
   assert.equal(url.searchParams.get('timeframe'), 'monthly');
   assert.equal(url.searchParams.get('soiling'), new Array(12).fill('0').join('|'));
   assert.equal(url.searchParams.has('albedo'), false);
+});
+
+test('the dataset defaults to TMY3 and can be switched to NSRDB', async () => {
+  const { calls, fetchImpl } = stubFetch({ outputs: OUTPUTS, station_info: { weather_data_source: 'TMY3' } });
+  const client = new PVWattsClient({ fetchImpl });
+  const result = await client.simulate(BASE_PARAMS);
+
+  assert.equal(new URL(calls[0]).searchParams.get('dataset'), 'tmy3');
+  assert.equal(result.dataset, 'tmy3');
+
+  // A dataset change is a different calculation, so it must not hit the cache.
+  await client.simulate({ ...BASE_PARAMS, dataset: 'nsrdb' });
+  assert.equal(calls.length, 2);
+  assert.equal(new URL(calls[1]).searchParams.get('dataset'), 'nsrdb');
+});
+
+test('an unknown dataset is rejected before any request is sent', () => {
+  assert.throws(
+    () => validateSimulationParams({ ...BASE_PARAMS, dataset: 'tmyd' }),
+    /dataset must be one of tmy3, nsrdb, tmy2, intl/
+  );
 });
 
 test('a blank key falls back to DEMO_KEY, and albedo is sent only when set', async () => {

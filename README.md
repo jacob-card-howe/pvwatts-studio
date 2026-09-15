@@ -10,7 +10,7 @@ The site is plain HTML, CSS, and JavaScript with no backend and no build step. T
 
 ![PVWatts Studio interface](docs/imgs/pvwatts_studio.png)
 
-> **Which calculation path should I use?** The web application is the canonical path. It calls the current public PVWatts v8 service and NSRDB TMY data.
+> **Which calculation path should I use?** The web application is the canonical path. It calls the current public PVWatts v8 service and uses the TMY3 station archive by default; the weather dataset can be switched to current NSRDB gridded TMY data, the older TMY2 station archive, or the international dataset for comparison.
 
 ## Quick start
 
@@ -44,7 +44,8 @@ Both upstream services send `Access-Control-Allow-Origin: *` on success and on e
 
 ## Features
 
-- Official PVWatts v8 calculations using current NSRDB TMY data
+- Official PVWatts v8 calculations using the TMY3 station archive by default
+- Selectable weather dataset: TMY3 (default), NSRDB gridded TMY, TMY2, and International, so an estimate can be compared against the current gridded data or the legacy station archives
 - Address, place, postal-code, and latitude/longitude search through OpenStreetMap Nominatim
 - System size, module type, array type, losses, tilt, azimuth, DC/AC ratio, inverter efficiency, ground coverage ratio, albedo, bifaciality, and monthly irradiance-loss inputs
 - Monthly and annual production, solar resource, capacity factor, and weather-grid metadata
@@ -60,12 +61,12 @@ Location text
   -> OpenStreetMap/Nominatim geocoding
   -> latitude/longitude
   -> official PVWatts v8 API
-  -> SSC pvwattsv8 + current NSRDB TMY
+  -> SSC pvwattsv8 + selected NSRDB or TMY weather dataset
   -> normalized JSON response
   -> charts, table, and exports
 ```
 
-[`static/pvwatts_client.js`](static/pvwatts_client.js) validates inputs in the browser, requests `dataset=nsrdb`, `radius=0`, and `timeframe=monthly` from PVWatts, and normalizes the response into the shape the interface renders.
+[`static/pvwatts_client.js`](static/pvwatts_client.js) validates inputs in the browser, requests the selected `dataset` — `tmy3` by default, or `nsrdb`, `tmy2`, or `intl` — along with `radius=0` and `timeframe=monthly` from PVWatts, and normalizes the response into the shape the interface renders. The dataset and the station the upstream service selected are reported with every result and included in the JSON export. TMY3 stations are concentrated in the United States, so some locations need NSRDB or the international dataset.
 
 A normal update costs one PVWatts request unless an identical calculation is served from the in-memory cache. A full parametric sweep can cost up to 77 requests, so use a personal developer key for batch studies.
 
@@ -173,4 +174,4 @@ PVWatts is a registered trademark of the National Laboratory of the Rockies (for
 
 ## License
 
-This project's own source is released under the [MIT License](LICENSE). The license covers only the code in this repository; it does not extend to the PVWatts service, NSRDB data, Chart.js, or OpenStreetMap data, which remain subject to their own terms.
+This project's own source is released under the [MIT License](LICENSE). The license covers only the code in this repository; it does not extend to the PVWatts service, NSRDB or TMY data, Chart.js, or OpenStreetMap data, which remain subject to their own terms.

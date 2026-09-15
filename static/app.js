@@ -190,6 +190,15 @@ function getApiKey() {
   return document.getElementById('input-api-key')?.value.trim() || '';
 }
 
+// Climate dataset selected in Advanced model settings; TMY3 is the default.
+function getSelectedDataset() {
+  return document.getElementById('select-dataset')?.value || PVWatts.DEFAULT_DATASET;
+}
+
+function datasetLabel(dataset) {
+  return PVWatts.DATASETS[dataset]?.label || PVWatts.DATASETS[PVWatts.DEFAULT_DATASET].label;
+}
+
 function initLocationSearch() {
   const input = document.getElementById('input-location');
   const button = document.getElementById('btn-search-location');
@@ -289,7 +298,7 @@ function updateLocationLabels(result = currentResult) {
   const label = document.getElementById('location-badge-label');
   if (!label) return;
   const station = result?.stationInfo;
-  const source = station?.weather_data_source || 'current NSRDB data';
+  const source = station?.weather_data_source || `${datasetLabel(result?.dataset || getSelectedDataset())} weather data`;
   label.textContent = `${currentLocation.name} · ${source}`;
   updateSweepAssumptions();
 }
@@ -305,7 +314,7 @@ function updateSweepAssumptions() {
   document.getElementById('sweep-assumption-losses').textContent = `${formatDecimal(params.losses)}%`;
   document.getElementById('sweep-assumption-hardware').textContent = `${moduleSelect.selectedOptions[0].text} · ${arraySelect.selectedOptions[0].text}`;
   document.getElementById('sweep-assumption-details').textContent =
-    `DC/AC ${formatDecimal(params.dcAcRatio)} · inverter ${formatDecimal(params.invEff)}% · GCR ${formatDecimal(params.groundCoverageRatio)}. Only tilt and azimuth vary.`;
+    `DC/AC ${formatDecimal(params.dcAcRatio)} · inverter ${formatDecimal(params.invEff)}% · GCR ${formatDecimal(params.groundCoverageRatio)} · ${datasetLabel(params.dataset)} weather. Only tilt and azimuth vary.`;
 }
 
 // Controls & Sliders Wiring
@@ -366,6 +375,7 @@ function initControls() {
 
   document.getElementById('select-module-type').addEventListener('change', () => scheduleSimulation(true));
   document.getElementById('select-array-type').addEventListener('change', () => scheduleSimulation(true));
+  document.getElementById('select-dataset').addEventListener('change', () => scheduleSimulation(true));
 
   const albedoMode = document.getElementById('select-albedo-mode');
   const customAlbedoField = document.getElementById('custom-albedo-field');
@@ -473,6 +483,7 @@ function getParams() {
     systemCapacityKw: readNumber('num-capacity', 4.0),
     moduleType: readNumber('select-module-type', 0),
     arrayType: readNumber('select-array-type', 0),
+    dataset: getSelectedDataset(),
     losses: readNumber('num-losses', 14.08),
     tilt: readNumber('num-tilt', 20.0),
     azimuth: readNumber('num-azimuth', 180.0),
@@ -518,12 +529,17 @@ function scheduleSimulation(immediate = false) {
   simulationTimer = setTimeout(updateSimulation, immediate ? 0 : 450);
 }
 
-function setSimulationStatus(message, type = '') {
+function setSimulationStatus(message, type = '', emphasis = '') {
   const status = document.getElementById('simulation-status');
-  status.textContent = message;
+  status.replaceChildren(message);
+  if (emphasis) {
+    const strong = document.createElement('strong');
+    strong.textContent = emphasis;
+    status.appendChild(strong);
+  }
   status.className = `simulation-status${type ? ` ${type}` : ''}`;
   const mobileStatus = document.getElementById('mobile-estimate-status');
-  if (mobileStatus) mobileStatus.textContent = message;
+  if (mobileStatus) mobileStatus.textContent = `${message}${emphasis}`;
 }
 
 // Calculate through the official PVWatts v8 API. Requests are debounced and
@@ -547,7 +563,7 @@ async function updateSimulation() {
   const params = getParams();
   const resultsArea = document.querySelector('.results-area');
   if (resultsArea) resultsArea.setAttribute('aria-busy', 'true');
-  setSimulationStatus('Calculating with official PVWatts v8 and current NSRDB data…');
+  setSimulationStatus(`Calculating with official PVWatts v8 and ${datasetLabel(params.dataset)} data…`);
 
   try {
     const result = await pvwattsClient.simulate(params, {
@@ -561,11 +577,13 @@ async function updateSimulation() {
     setResultActionsEnabled(true);
     updateLocationLabels(result);
 
+    // The active weather dataset and station are emphasized so the data behind
+    // the estimate is visible at a glance, not buried in the status line.
     const station = result.stationInfo || {};
     const grid = Number.isFinite(Number(station.lat)) && Number.isFinite(Number(station.lon))
-      ? ` · NSRDB grid ${Number(station.lat).toFixed(2)}, ${Number(station.lon).toFixed(2)}`
-      : '';
-    setSimulationStatus(`${result.model} · ${result.version}${grid}`, 'success');
+      ? `${datasetLabel(result.dataset)} grid ${Number(station.lat).toFixed(2)}, ${Number(station.lon).toFixed(2)}`
+      : `${datasetLabel(result.dataset)} weather data`;
+    setSimulationStatus(`${result.model} · ${result.version} · `, 'success', grid);
   } catch (error) {
     if (error.name === 'AbortError' || sequence !== simulationSequence) return;
     console.error('PVWatts simulation failed:', error);
@@ -943,6 +961,7 @@ async function runParametricSweep() {
   const shared = {
     systemCapacityKw: currentParams.systemCapacityKw,
     losses: currentParams.losses,
+    dataset: currentParams.dataset,
     lat: currentLocation.lat,
     lon: currentLocation.lon,
     moduleType: currentParams.moduleType,
