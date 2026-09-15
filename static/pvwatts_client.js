@@ -13,6 +13,33 @@ const GEOCODER_URL = 'https://nominatim.openstreetmap.org/search';
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DEMO_KEY = 'DEMO_KEY';
 
+/**
+ * Climate datasets accepted by the PVWatts `dataset` parameter. TMY3 is the
+ * default: the 1991-2005 station archive, which is US-centric, so locations
+ * outside it need NSRDB or `intl`. NSRDB is the current gridded TMY product and
+ * TMY2 the older 1961-1990 archive. Keep this in the same order as the
+ * selector in index.html.
+ */
+const DATASETS = Object.freeze({
+  tmy3: {
+    label: 'TMY3',
+    description: 'TMY3 station data from the NSRDB 1991-2005 archive'
+  },
+  nsrdb: {
+    label: 'NSRDB',
+    description: 'current gridded NSRDB typical meteorological year data'
+  },
+  tmy2: {
+    label: 'TMY2',
+    description: 'TMY2 station data from the NSRDB 1961-1990 archive'
+  },
+  intl: {
+    label: 'International',
+    description: 'PVWatts international station data'
+  }
+});
+const DEFAULT_DATASET = 'tmy3';
+
 const RATE_LIMIT_MESSAGE =
   'PVWatts rate limit reached. Enter your free NLR developer key above instead of ' +
   'relying on the shared DEMO_KEY.';
@@ -90,7 +117,13 @@ function validateSimulationParams(params) {
   const useWfAlbedo = binaryFlag(fallback(params.useWeatherFileAlbedo, true), 'useWeatherFileAlbedo');
   const albedo = useWfAlbedo ? null : exclusiveFraction(params.albedo, 'albedo');
 
+  const dataset = String(fallback(params.dataset, DEFAULT_DATASET)).trim().toLowerCase() || DEFAULT_DATASET;
+  if (!Object.prototype.hasOwnProperty.call(DATASETS, dataset)) {
+    throw new Error(`dataset must be one of ${Object.keys(DATASETS).join(', ')}`);
+  }
+
   return {
+    dataset,
     system_capacity: finiteNumber(fallback(params.systemCapacityKw, 4.0), 'systemCapacityKw', 0.05, 500000),
     module_type: moduleType,
     array_type: arrayType,
@@ -170,6 +203,7 @@ function normalizePvwattsResponse(payload, inputs) {
     monthlyPoa: poaMonthly,
     monthNames: MONTH_NAMES,
     stationInfo: payload.station_info || {},
+    dataset: inputs.dataset || DEFAULT_DATASET,
     version: payload.version || '8',
     model: 'Official PVWatts v8 (SSC pvwattsv8)'
   };
@@ -262,7 +296,7 @@ class PVWattsClient {
       soiling: inputs.soiling.join('|'),
       lat: inputs.lat,
       lon: inputs.lon,
-      dataset: 'nsrdb',
+      dataset: inputs.dataset,
       radius: 0,
       timeframe: 'monthly'
     });
@@ -362,7 +396,9 @@ const PVWatts = {
   searchLocations,
   validateSimulationParams,
   normalizePvwattsResponse,
-  PVWATTS_API_URL
+  PVWATTS_API_URL,
+  DATASETS,
+  DEFAULT_DATASET
 };
 
 if (typeof window !== 'undefined') window.PVWatts = PVWatts;

@@ -10,7 +10,7 @@ PVWatts Studio primarily serves students and educators who need to configure a p
 
 ## Product Purpose
 
-PVWatts Studio provides a clearer, more usable interface for producing credible solar-production estimates with the official PVWatts v8 model and current NSRDB data. A successful session ends with a trustworthy location- and system-specific estimate that the user can inspect or export; users should also be able to compare selected configurations and explain the effect of their assumptions.
+PVWatts Studio provides a clearer, more usable interface for producing credible solar-production estimates with the official PVWatts v8 model and NSRDB weather data. It uses the TMY3 station archive by default, with current NSRDB gridded data, TMY2, and the international dataset selectable. A successful session ends with a trustworthy location- and system-specific estimate that the user can inspect or export; users should also be able to compare selected configurations and explain the effect of their assumptions.
 
 ## Positioning
 
@@ -22,7 +22,8 @@ Users run a local Python server, open the browser application, choose a location
 
 ## Capabilities and Constraints
 
-- Official PVWatts v8 calculations with current NSRDB typical meteorological year data.
+- Official PVWatts v8 calculations with the TMY3 station archive by default.
+- A selectable weather dataset — TMY3 (default), NSRDB gridded TMY, TMY2, or International — so an estimate can be compared against the current gridded data or the legacy station archives; the dataset and the selected climate station are reported with the result and exported. TMY3 stations are US-centric, so some locations need NSRDB or the international dataset.
 - Address, place, postal-code, and latitude/longitude search.
 - Standard and advanced model inputs, including system size, module and array types, losses, tilt, azimuth, DC/AC ratio, inverter efficiency, ground coverage ratio, albedo, bifaciality, and monthly irradiance losses.
 - Monthly and annual production, solar resource, capacity factor, energy yield, weather-grid metadata, JSON/CSV exports, and a 77-case tilt/azimuth comparison.
@@ -59,7 +60,7 @@ The UMass Lowell-derived color scheme currently defined in `static/styles.css` i
 
 ## Product Principles
 
-1. **Official results, clearly sourced.** Preserve the official PVWatts v8 and current NSRDB path and make the provenance of every estimate clear.
+1. **Official results, clearly sourced.** Preserve the official PVWatts v8 path, keep the selected dataset and station provenance visible, and make the provenance of every estimate clear.
 2. **Credibility through transparency.** Expose the assumptions, units, data source, validation boundaries, and limitations needed to understand and teach the result.
 3. **Comparison should deepen understanding.** Make meaningful system choices easy to compare without implying unsupported precision or certainty.
 4. **Local and lightweight by default.** Preserve the dependency-free local workflow and careful, session-only handling of user-supplied credentials.

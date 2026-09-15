@@ -490,6 +490,9 @@ body::before {
   font-size: 0.875rem;
 }
 
+.simulation-status strong {
+  font-weight: 800;
+}
 .simulation-status.success {
   border-color: rgba(59, 213, 174, 0.4);
   background: rgba(59, 213, 174, 0.09);

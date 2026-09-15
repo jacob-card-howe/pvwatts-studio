@@ -254,6 +254,16 @@
               <p class="advanced-help">Refine official PVWatts v8 inputs. The quick-estimate defaults are suitable for a first result.</p>
               <div class="advanced-fields">
                 <div>
+                  <label class="form-label" for="select-dataset">Weather dataset</label>
+                  <select id="select-dataset" class="select-input" aria-describedby="dataset-help">
+                    <option value="tmy3" selected>TMY3 — 1991–2005 stations</option>
+                    <option value="nsrdb">NSRDB — current gridded TMY</option>
+                    <option value="tmy2">TMY2 — 1961–1990 stations</option>
+                    <option value="intl">International — outside the NSRDB</option>
+                  </select>
+                  <span id="dataset-help" class="field-help">TMY3 is the default 1991–2005 station archive; NSRDB is the current gridded dataset. TMY2 is the older 1961–1990 archive, and International covers locations outside NSRDB coverage.</span>
+                </div>
+                <div>
                   <label class="form-label" for="input-dc-ac-ratio">DC-to-AC size ratio</label>
                   <input type="number" id="input-dc-ac-ratio" class="text-input" min="0.5" max="3.0" step="any" value="1.2" aria-describedby="dc-ac-ratio-help">
                   <span id="dc-ac-ratio-help" class="field-help">Panel DC capacity divided by inverter AC capacity. Higher values can increase inverter clipping.</span>
@@ -338,7 +348,7 @@
         <section class="results-area" aria-labelledby="results-heading">
           <h2 id="results-heading" class="sr-only">Calculated results</h2>
           <div id="simulation-status" class="simulation-status" role="status" aria-live="polite" aria-atomic="true">
-            Calculating with official PVWatts v8 and current NSRDB data…
+            Calculating with official PVWatts v8 and the selected weather dataset…
           </div>
 
           <!-- Key Metrics KPI Cards -->
@@ -419,7 +429,7 @@
           <div class="card">
             <div class="card-header results-table-header">
               <h3 class="card-title">Monthly performance breakdown</h3>
-              <span class="location-badge-label" id="location-badge-label">Renton, WA · Official PVWatts v8 / NSRDB</span>
+              <span class="location-badge-label" id="location-badge-label">Renton, WA · TMY3 weather data</span>
             </div>
             <div class="data-table-wrapper">
               <table class="data-table" id="table-monthly-results">

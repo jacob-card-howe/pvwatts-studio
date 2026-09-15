@@ -2,6 +2,7 @@
 
 from html.parser import HTMLParser
 from pathlib import Path
+import re
 import json
 import unittest
 
@@ -136,6 +137,39 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("lon: -122.216", self.javascript)
         self.assertNotIn("Reston, WA", self.html)
         self.assertNotIn("Reston, WA", self.javascript)
+
+    def test_the_weather_dataset_is_selectable_and_defaults_to_tmy3(self):
+        tag, attributes = self.parser.elements_by_id["select-dataset"]
+        self.assertEqual(tag, "select")
+        self.assertEqual(attributes["aria-describedby"], "dataset-help")
+
+        selector = self.html.split('id="select-dataset"', 1)[1].split("</select>", 1)[0]
+        options = re.findall(r'<option value="([^"]+)"([^>]*)>', selector)
+        self.assertEqual([value for value, _attrs in options], ["tmy3", "nsrdb", "tmy2", "intl"])
+        self.assertIn("selected", options[0][1], "TMY3 must be the default dataset")
+        self.assertIn("const DEFAULT_DATASET = 'tmy3';", self.client)
+
+        # The selector sits with the advanced model inputs and drives the request.
+        self.assertLess(self.html.index('class="advanced-settings"'), self.html.index('id="select-dataset"'))
+        self.assertLess(self.html.index('id="select-dataset"'), self.html.index('class="monthly-loss-fieldset"'))
+        self.assertIn("dataset: getSelectedDataset()", self.javascript)
+        self.assertIn("document.getElementById('select-dataset').addEventListener('change'", self.javascript)
+        self.assertIn("dataset: currentParams.dataset", self.javascript)
+        self.assertIn("dataset: inputs.dataset", self.client)
+        self.assertIn("const DATASETS = Object.freeze({", self.client)
+
+    def test_the_dataset_reaches_the_status_copy_and_exports(self):
+        self.assertIn("function datasetLabel(dataset)", self.javascript)
+        self.assertIn("${datasetLabel(params.dataset)} data", self.javascript)
+        self.assertIn("station?.weather_data_source", self.javascript)
+        # The export already serializes getParams(), which now carries the dataset.
+        self.assertIn("parameters: params", self.javascript)
+
+    def test_the_active_station_line_is_emphasized_in_the_status(self):
+        self.assertIn("function setSimulationStatus(message, type = '', emphasis = '')", self.javascript)
+        self.assertIn("const strong = document.createElement('strong')", self.javascript)
+        self.assertIn("setSimulationStatus(`${result.model} · ${result.version} · `, 'success', grid)", self.javascript)
+        self.assertRegex(self.styles, r"\.simulation-status strong\s*\{[^}]*font-weight:\s*800;")
 
     def test_internal_exercise_suite_is_not_present(self):
         self.assertNotIn("exercise", self.html.lower())
