@@ -267,6 +267,11 @@ Cyan-tinted one-pixel borders describe control boundaries and panel structure. A
 ### Status and Progress
 - **Style:** information uses cyan, success uses green, and error uses orange over semantically tinted dark fields. Loading overlays occupy the chart they block and explain both the current phase and whether progress is measured or indeterminate.
 
+### Headlines (Solar News)
+- **Style:** a dense reading list rather than a card grid. Each row places a monospaced relative timestamp in a fixed left column beside a sans-serif headline, one muted summary line, and the publisher and topic as small metadata. Quiet Structural Cyan hairlines separate rows; there are no per-row borders, shadows, or glows.
+- **Filters:** topic and publisher chips reuse the navigation-active treatment (Instrument Blue when pressed) at `6px` radius, and the search field reuses the recessed input well. The masthead is the only card in the view, so hierarchy comes from typography and spacing rather than layered surfaces.
+- **Behavior:** headline links leave the site, so they carry the primary text color at rest and Signal Cyan on hover or focus. The rebuild timestamp stays visible above the list, and an unavailable publisher is named rather than silently missing.
+
 ## Do's and Don'ts
 
 ### Do:

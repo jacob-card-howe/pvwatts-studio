@@ -3,6 +3,7 @@
 from html.parser import HTMLParser
 from pathlib import Path
 import re
+import json
 import unittest
 
 
@@ -34,6 +35,7 @@ class TestStaticUI(unittest.TestCase):
         cls.client = (ROOT / "static" / "pvwatts_client.js").read_text(encoding="utf-8")
         cls.datasheet = (ROOT / "static" / "datasheet.js").read_text(encoding="utf-8")
         cls.datasheet_parser = (ROOT / "static" / "datasheet_parser.js").read_text(encoding="utf-8")
+        cls.news = (ROOT / "static" / "news.js").read_text(encoding="utf-8")
 
     def test_root_canvas_uses_the_page_background_during_overscroll(self):
         self.assertRegex(
@@ -394,6 +396,115 @@ class TestStaticUI(unittest.TestCase):
         self.assertLess(self.html.index('src="datasheet_parser.js"'), self.html.index('src="datasheet.js"'))
         self.assertIn('<script src="datasheet_parser.js"></script>', self.html)
         self.assertIn('<script src="datasheet.js"></script>', self.html)
+
+    def test_footer_news_button_opens_the_news_workspace(self):
+        self.assertIn('class="footer-links"', self.html)
+        self.assertIn('id="footer-news"', self.html)
+        self.assertLess(
+            self.html.index('id="footer-news"'),
+            self.html.index('class="footer-github"'),
+            "the news button sits next to the GitHub link",
+        )
+        button_tag, button = self.parser.elements_by_id["footer-news"]
+        self.assertEqual(button_tag, "button")
+        self.assertEqual(button["aria-controls"], "news-tab")
+
+        tab_tag, tab = self.parser.elements_by_id["tab-news"]
+        self.assertEqual(tab_tag, "button")
+        self.assertEqual(tab["role"], "tab")
+        self.assertEqual(tab["aria-controls"], "news-tab")
+        self.assertEqual(tab["aria-selected"], "false")
+        self.assertEqual(tab["tabindex"], "-1")
+        self.assertLess(self.html.index('id="tab-datasheet"'), self.html.index('id="tab-news"'))
+
+        panel_tag, panel = self.parser.elements_by_id["news-tab"]
+        self.assertEqual(panel_tag, "div")
+        self.assertEqual(panel["role"], "tabpanel")
+        self.assertEqual(panel["aria-labelledby"], "tab-news")
+        self.assertIn("hidden", panel)
+
+    def test_every_feed_is_filterable_in_the_news_view(self):
+        for element_id in (
+            "news-filter-category",
+            "news-filter-source",
+            "news-search",
+            "news-reset",
+            "news-list",
+            "news-status",
+        ):
+            with self.subTest(element_id=element_id):
+                self.assertIn(element_id, self.parser.elements_by_id)
+        self.assertIn('aria-label="Filter by topic"', self.html)
+        self.assertIn('aria-label="Filter by source"', self.html)
+        # Categories and sources are built from the payload, so a newly added
+        # publisher appears in the filter row without any markup change.
+        self.assertIn("data.categories.map", self.news)
+        self.assertIn("data.sources.map", self.news)
+        self.assertIn("createNewsChip(entry.label, entry.value", self.news)
+        self.assertIn("chip.dataset.value = value", self.news)
+        self.assertIn("chip.setAttribute('aria-pressed'", self.news)
+        self.assertIn("newsState.query", self.news)
+
+    def test_news_view_reads_one_static_file_and_never_contacts_a_publisher(self):
+        self.assertIn("const NEWS_FEED_URL = 'news.json'", self.news)
+        self.assertIn("fetch(NEWS_FEED_URL", self.news)
+        for forbidden in ("localStorage", "sessionStorage", "XMLHttpRequest"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, self.news)
+        # Outbound headline links are the only way off the site.
+        self.assertIn("headline.rel = 'noopener noreferrer'", self.news)
+        self.assertIn('src="news.js"', self.html)
+        self.assertLess(self.html.index('src="app.js"'), self.html.index('src="news.js"'))
+        self.assertIn(".news-item", self.styles)
+        self.assertIn(".news-chip", self.styles)
+
+    def test_published_news_feed_satisfies_the_view_contract(self):
+        """The deployed list is generated, so its shape is asserted, not reviewed."""
+        feed = ROOT / "static" / "news.json"
+        self.assertTrue(feed.exists(), "static/news.json must be generated before the site is served")
+        payload = json.loads(feed.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["refreshHours"], 6)
+        self.assertEqual(payload["categories"], ["Industry", "Research", "Policy", "Video"])
+        self.assertGreater(len(payload["items"]), 0)
+
+        source_ids = {source["id"] for source in payload["sources"]}
+        self.assertEqual(len(source_ids), len(payload["sources"]), "source ids are unique")
+        for entry in payload["unavailable"]:
+            with self.subTest(unavailable=entry["id"]):
+                self.assertIn(entry["id"], source_ids, "an unavailable feed is still a configured publisher")
+        for source in payload["sources"]:
+            with self.subTest(source=source["id"]):
+                self.assertTrue(source["name"])
+                self.assertIn(source["category"], payload["categories"])
+                self.assertRegex(source["homepage"], r"^https://")
+
+        for item in payload["items"]:
+            with self.subTest(item=item["url"]):
+                self.assertIn(item["source"], source_ids)
+                self.assertIn(item["category"], payload["categories"])
+                self.assertRegex(item["url"], r"^https://")
+                self.assertRegex(item["published"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+                self.assertLessEqual(len(item["summary"]), 201)
+                self.assertTrue(item["title"])
+                # The view renders plain text, so no headline or summary may
+                # carry markup or an undecoded entity into the list.
+                for field in ("title", "summary"):
+                    self.assertNotRegex(
+                        item[field],
+                        r"<[a-zA-Z/!]|&(?:[a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);",
+                        f"{field} still contains feed markup: {item[field][:120]!r}",
+                    )
+
+    def test_the_news_list_is_rebuilt_on_a_forgiving_schedule(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        self.assertIn("cron: '17 */6 * * *'", workflow)
+        self.assertIn("node tools/fetch_news.mjs", workflow)
+        fetcher = (ROOT / "tools" / "fetch_news.mjs").read_text(encoding="utf-8")
+        self.assertIn("PVWattsStudioNews/1.0 (+https://github.com/jacob-card-howe/pvwatts-studio)", fetcher)
+        self.assertIn("REQUEST_TIMEOUT_MS = 15000", fetcher)
+        self.assertEqual(fetcher.count("await fetch("), 1, "each publisher is requested once, one after another")
+        self.assertNotIn("Promise.all", fetcher, "no request burst")
 
 if __name__ == "__main__":
     unittest.main()

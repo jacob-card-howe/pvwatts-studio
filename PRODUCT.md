@@ -27,9 +27,12 @@ Users run a local Python server, open the browser application, choose a location
 - Address, place, postal-code, and latitude/longitude search.
 - Standard and advanced model inputs, including system size, module and array types, losses, tilt, azimuth, DC/AC ratio, inverter efficiency, ground coverage ratio, albedo, bifaciality, and monthly irradiance losses.
 - Monthly and annual production, solar resource, capacity factor, energy yield, weather-grid metadata, JSON/CSV exports, and a 77-case tilt/azimuth comparison.
+- A Solar News view that aggregates photovoltaic headlines from publisher, journal, and agency feeds, filterable by topic, by any single publisher, and by free text. Aggregation happens on a slow schedule in the build rather than in the browser, so the site adds no requests to publishers and no third-party requests to a page load; every headline links back to the publisher.
+- It is a reading aid, not an authority: headlines and summaries come from each publisher's own feed and the view shows when the list was last rebuilt.
 - A module datasheet reader that extracts specifications from a manufacturer PDF in the browser, renders the source page beside an editable table, cross-checks independently stated values, and computes module area, efficiency, fill factor, power-tolerance bounds, and the NOCT-versus-STC power difference. Extraction is presented as a reading aid to be confirmed, never as an authority; values that cannot be located are left blank rather than guessed. Inverter datasheets are out of scope for now.
 - Python 3.10+ with no third-party package installation; the application uses the Python standard library and a plain HTML/CSS/JavaScript frontend.
-- Internet access is required for geocoding, Chart.js, and canonical PVWatts calculations.
+- Internet access is required for geocoding, Chart.js, and canonical PVWatts calculations. The news view needs no third-party access: it reads a static file in the deployed site.
+- Publisher feeds are contacted only by `tools/fetch_news.mjs`, which runs four times a day with one request per feed; adding a publisher means adding it to the curated `SOURCES` list, not scraping a site at runtime.
 - API quotas are an operating constraint. The shared `DEMO_KEY` can return rate-limit errors, and a full comparison can consume up to 77 PVWatts requests.
 - Browser-provided API keys must remain session-only: they are sent to the local server for the corresponding request and are not written to browser storage, exports, or application files.
 - The server binds to loopback by default to avoid exposing a browser-provided key to other devices.
@@ -45,6 +48,8 @@ The UMass Lowell-derived color scheme currently defined in `static/styles.css` i
 ## Evidence on Hand
 
 - `README.md`: product scope, canonical workflow, operational requirements, feature inventory, API-key policy, data policy, and independent-project disclaimer.
+- `static/news.json`: generated headline list, source metadata, and rebuild timestamp the news view renders.
+- `tools/fetch_news.mjs`: curated source list and the polite fetch schedule behind that file.
 - `static/index.html`: current product copy, complete input and output structure, exports, comparison workflow, attribution, and visible disclaimer.
 - `static/app.js`: interactive behavior, request lifecycle, current charts, comparison logic, exports, and session-only API-key handling.
 - `static/pvwatts_client.js`: official-service integration, validation rules, caching, geocoding, and error behavior.

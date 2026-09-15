@@ -7,6 +7,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Rebuild the news feed four times a day. Each publisher receives one
+    # request per run, so the interval is deliberately generous.
+    - cron: '17 */6 * * *'
 
 permissions:
   contents: read
@@ -25,8 +29,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Test the PVWatts browser client and the datasheet reader
-        run: node --test tests/test_pvwatts_client.mjs tests/test_datasheet_parser.mjs
+      - name: Test the PVWatts browser client, the datasheet reader, and the news aggregator
+        run: node --test tests/test_pvwatts_client.mjs tests/test_datasheet_parser.mjs tests/test_news_fetcher.mjs
 
       - uses: actions/setup-python@v7
         with:
@@ -44,6 +48,17 @@ jobs:
       url: ${{ steps.publish.outputs.deployment-url }}
     steps:
       - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      # The site ships the aggregated feed as a static file, so the news list
+      # is rebuilt inside the deployment rather than by a visitor's browser.
+      # A failed rebuild keeps the committed feed and still deploys.
+      - name: Rebuild the aggregated photovoltaic news feed
+        continue-on-error: true
+        run: node tools/fetch_news.mjs
 
       - name: Publish static/ to Cloudflare Pages
         id: publish
