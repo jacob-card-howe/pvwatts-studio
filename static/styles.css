@@ -2665,6 +2665,30 @@ body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
   padding: 0;
 }
 
+/* Topic accents: each news topic borrows one UML accent so a long headline
+   list scans by topic. Unknown topics fall back to Hardware Gray. */
+.news-item,
+.news-chip {
+  --topic-color: var(--text-muted);
+}
+
+[data-topic="industry"] { --topic-color: var(--uml-green); }
+[data-topic="research"] { --topic-color: var(--uml-yellow); }
+[data-topic="policy"] { --topic-color: var(--uml-aqua); }
+[data-topic="video"] { --topic-color: var(--uml-orange); }
+
+.news-chip[data-topic]::before,
+.news-item-when::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.45rem;
+  border-radius: 50%;
+  background: var(--topic-color);
+  vertical-align: 0.05em;
+}
+
 .news-item {
   display: grid;
   grid-template-columns: 6.5rem minmax(0, 1fr);
@@ -2719,7 +2743,7 @@ body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
 }
 
 .news-item-category {
-  color: var(--text-muted);
+  color: var(--topic-color);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;

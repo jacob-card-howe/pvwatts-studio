@@ -168,7 +168,7 @@ The palette behaves like an instrument legend: dark hardware establishes the fie
 
 **The Signal Semantics Rule.** Blue and cyan mean interaction or information, green means valid or complete, and orange means error or recovery. Never swap these roles for visual variety.
 
-**The Full-Palette Exception Rule.** Use the extended fern, river, gold, and maroon accents together only in parametric comparison views where series distinction is functional, and in the Spectrum Rail that caps each tab's lead panel.
+**The Full-Palette Exception Rule.** Use the extended fern, river, gold, and maroon accents together only in parametric comparison views where series distinction is functional, in the Spectrum Rail that caps each tab's lead panel, and as the per-topic accents in Solar News.
 
 ## Typography
 
@@ -270,6 +270,7 @@ Cyan-tinted one-pixel borders describe control boundaries and panel structure. A
 
 ### Headlines (Solar News)
 - **Style:** a dense reading list rather than a card grid. Each row places a monospaced relative timestamp in a fixed left column beside a sans-serif headline, one muted summary line, and the publisher and topic as small metadata. Quiet Structural Cyan hairlines separate rows; there are no per-row borders, shadows, or glows.
+- **Topic accents:** each topic borrows one accent so a long list scans by topic: Industry in Valid Green, Research in Solar Yellow, Policy in Aqua, and Video in Orange. The accent appears only as a small dot before the timestamp and on the matching topic chip, plus the tinted topic label; the label always names the topic, so color is never the only cue. An unknown topic falls back to Hardware Gray.
 - **Filters:** topic and publisher chips reuse the navigation-active treatment (Instrument Blue when pressed) at `6px` radius, and the search field reuses the recessed input well. The masthead is the only card in the view, so hierarchy comes from typography and spacing rather than layered surfaces.
 - **Behavior:** headline links leave the site, so they carry the primary text color at rest and Signal Cyan on hover or focus. The rebuild timestamp stays visible above the list, and an unavailable publisher is named rather than silently missing.
 
@@ -289,4 +290,4 @@ Cyan-tinted one-pixel borders describe control boundaries and panel structure. A
 - **Don't** spread glow, blur, or translucency across every surface; instrument effects must explain depth or state.
 - **Don't** use monospace as a technical costume for prose, navigation, or general headings.
 - **Don't** extend the logo's legacy white-to-blue text gradient into headings, KPIs, or body copy.
-- **Don't** display the full accent family outside analytical comparison contexts and the per-tab Spectrum Rail.
+- **Don't** display the full accent family outside analytical comparison contexts, the per-tab Spectrum Rail, and the Solar News topic accents.
