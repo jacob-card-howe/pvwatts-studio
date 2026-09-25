@@ -73,7 +73,18 @@ class TestStaticUI(unittest.TestCase):
 
         self.assertIn("const PARAMETRIC_COLORS = Object.freeze([", self.javascript)
         self.assertIn("PARAMETRIC_COLORS[azimuthIndex % PARAMETRIC_COLORS.length]", self.javascript)
-        self.assertIn("#parametric-tab > .card::before", self.styles)
+        self.assertIn(".card.panel-rail {", self.styles)
+
+    def test_every_tab_leads_with_exactly_one_spectrum_rail_panel(self):
+        tab_ids = ("simulator-tab", "parametric-tab", "datasheet-tab", "news-tab")
+        for index, tab_id in enumerate(tab_ids):
+            panel = self.html.split(f'id="{tab_id}"', 1)[1]
+            if index + 1 < len(tab_ids):
+                panel = panel.split(f'id="{tab_ids[index + 1]}"', 1)[0]
+            with self.subTest(tab=tab_id):
+                self.assertEqual(panel.count("panel-rail"), 1)
+                first_card = re.search(r'class="card[^"]*"', panel).group(0)
+                self.assertIn("panel-rail", first_card)
 
     def test_continuous_number_inputs_accept_arbitrary_decimals(self):
         input_ids = (
@@ -336,7 +347,7 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("page.render({ canvasContext: context, viewport })", self.datasheet)
         self.assertIn('class="sim-grid ds-workspace"', self.html)
         self.assertIn("grid-template-columns: 380px 1fr", self.styles)
-        self.assertLess(self.html.index('class="card ds-controls"'), self.html.index('id="ds-results"'))
+        self.assertLess(self.html.index('class="card ds-controls'), self.html.index('id="ds-results"'))
 
     def test_implausible_values_are_rejected_rather_than_reported(self):
         self.assertIn("function inRange(field, value)", self.datasheet_parser)
