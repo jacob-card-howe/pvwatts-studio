@@ -445,6 +445,15 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("chip.setAttribute('aria-pressed'", self.news)
         self.assertIn("newsState.query", self.news)
 
+    def test_news_filter_rows_collapse_behind_a_disclosure(self):
+        # The chip rows start closed so the headlines sit near the top of the
+        # tab; each summary still names the active choice.
+        self.assertEqual(self.html.count('<details class="news-filter-group">'), 2)
+        for element_id in ("news-filter-category-current", "news-filter-source-current"):
+            with self.subTest(element_id=element_id):
+                self.assertIn(element_id, self.parser.elements_by_id)
+        self.assertIn("newsElement(`${containerId}-current`).textContent", self.news)
+
     def test_news_view_reads_one_static_file_and_never_contacts_a_publisher(self):
         self.assertIn("const NEWS_FEED_URL = 'news.json'", self.news)
         self.assertIn("fetch(NEWS_FEED_URL", self.news)
