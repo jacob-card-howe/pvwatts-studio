@@ -251,6 +251,8 @@ function initNewsTab() {
   });
 
   newsElement('news-empty').hidden = true;
+  // A refresh can restore the News tab before this listener exists.
+  if (tab.getAttribute('aria-selected') === 'true') loadNewsFeed();
 }
 
 if (document.readyState === 'loading') {

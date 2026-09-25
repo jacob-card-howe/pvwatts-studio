@@ -150,6 +150,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Tab Navigation
+// The selected tab is kept in the ?tab= query parameter so a refresh (or a
+// shared link) reopens it. A query parameter survives the in-page #anchor
+// links, which would overwrite a hash.
+const TAB_QUERY_PARAM = 'tab';
+
+function tabSlug(tab) {
+  return tab.id.replace(/^tab-/, '');
+}
+
+function readTabFromUrl() {
+  return new URLSearchParams(window.location.search).get(TAB_QUERY_PARAM);
+}
+
+function writeTabToUrl(tab, isDefault) {
+  const url = new URL(window.location.href);
+  if (isDefault) url.searchParams.delete(TAB_QUERY_PARAM);
+  else url.searchParams.set(TAB_QUERY_PARAM, tabSlug(tab));
+  if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url);
+}
+
 function initTabs() {
   const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
 
@@ -165,6 +185,7 @@ function initTabs() {
         panel.classList.toggle('active', selected);
       }
     });
+    writeTabToUrl(tab, tab === tabs[0]);
     if (tab.id === 'tab-parametric') updateSweepAssumptions();
     // Panels with their own loader (Solar News) follow activation without
     // being coupled to this function.
@@ -185,6 +206,9 @@ function initTabs() {
       activateTab(tabs[nextIndex], true);
     });
   });
+
+  const requestedTab = tabs.find(tab => tabSlug(tab) === readTabFromUrl());
+  if (requestedTab && requestedTab.getAttribute('aria-selected') !== 'true') activateTab(requestedTab);
 }
 
 // The key is read at call time, never stored, and travels only in the
