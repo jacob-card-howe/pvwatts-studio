@@ -214,10 +214,13 @@ class TestStaticUI(unittest.TestCase):
                     self.html,
                     rf'class="copy-output-btn"[^>]+data-copy-target="{output_id}"[^>]+disabled',
                 )
+        header = self.html.split("<header", 1)[1].split("</header>", 1)[0]
         for export_id in ("btn-export-json", "btn-export-csv"):
             tag, attributes = self.parser.elements_by_id[export_id]
             self.assertEqual(tag, "button")
             self.assertIn("disabled", attributes)
+            self.assertIn(f'id="{export_id}"', simulator_panel)
+            self.assertNotIn(f'id="{export_id}"', header)
         self.assertIn("navigator.clipboard.writeText", self.javascript)
         self.assertIn("function setResultActionsEnabled(enabled)", self.javascript)
 

@@ -30,7 +30,7 @@ async page => {
   };
   check(await page.locator('#ds-empty').isVisible(), 'Empty state teaches the workflow');
   check(await page.locator('#ds-export-csv').isDisabled(), 'Empty exports disabled');
-  check(!await page.locator('.header-actions').isVisible(), 'Simulator exports hidden in reader');
+  check(await page.locator('.app-header button:not([role="tab"])').count() === 0, 'Header holds only the workspace tabs');
   await capture('empty-desktop', 1440);
   await capture('empty-mobile', 390, 844);
 
@@ -113,7 +113,15 @@ async page => {
   check(await page.evaluate(() => [...document.querySelectorAll('.ds-input')].every(el => el.getAttribute('aria-label') && el.getAttribute('aria-describedby'))), 'All measurement controls named and source-described');
   check(await page.evaluate(() => { const ids = [...document.querySelectorAll('[id]')].map(el => el.id); return new Set(ids).size === ids.length; }), 'No duplicate IDs');
   await page.locator('#tab-simulator').click();
-  check(await page.locator('.header-actions').isVisible(), 'Simulator exports restored on tab switch');
+  const navRow = async () => page.locator('.nav-tabs').evaluate(el => { const r = el.getBoundingClientRect(); return [r.top, r.left, r.width].map(Math.round).join(); });
+  for (const width of [1440, 900, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const readerRow = await navRow();
+    await page.locator('#tab-simulator').click();
+    check(await navRow() === readerRow, `${width}px: tab bar matches the reader on the simulator tab`);
+    await page.locator('#tab-datasheet').click();
+  }
+  check(await page.locator('#simulator-tab #btn-export-json').count() === 1, 'Simulator exports live in the simulator results');
   await page.locator('#tab-datasheet').click();
   check(await page.locator('#ds-kpi-power').textContent() === '390', 'Reader state retained across tabs');
   await page.locator('#ds-clear').click();

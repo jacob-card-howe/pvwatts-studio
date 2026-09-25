@@ -81,17 +81,6 @@
           <span class="nav-label-wide">Solar News</span><span class="nav-label-compact" aria-hidden="true">News</span>
         </button>
       </nav>
-
-      <!-- Header Actions -->
-      <div class="header-actions" aria-label="Export results">
-        <button id="btn-export-json" class="btn btn-outline btn-sm" type="button" disabled aria-label="Export results as JSON" aria-describedby="export-help">
-          <span class="export-label-wide">Export JSON</span><span class="export-label-compact" aria-hidden="true">JSON</span>
-        </button>
-        <button id="btn-export-csv" class="btn btn-outline btn-sm" type="button" disabled aria-label="Export results as CSV" aria-describedby="export-help">
-          <span class="export-label-wide">Export CSV</span><span class="export-label-compact" aria-hidden="true">CSV</span>
-        </button>
-        <span id="export-help" class="sr-only">Exports become available after a successful calculation.</span>
-      </div>
     </div>
   </header>
 
@@ -428,8 +417,15 @@
           <!-- Results Monthly Table -->
           <div class="card">
             <div class="card-header results-table-header">
-              <h3 class="card-title">Monthly performance breakdown</h3>
-              <span class="location-badge-label" id="location-badge-label">Renton, WA · TMY3 weather data</span>
+              <div class="results-table-heading">
+                <h3 class="card-title">Monthly performance breakdown</h3>
+                <span class="location-badge-label" id="location-badge-label">Renton, WA · TMY3 weather data</span>
+              </div>
+              <div class="results-export-row" role="group" aria-label="Export results">
+                <button id="btn-export-json" class="btn btn-outline btn-sm" type="button" disabled aria-describedby="export-help">Export JSON</button>
+                <button id="btn-export-csv" class="btn btn-outline btn-sm" type="button" disabled aria-describedby="export-help">Export CSV</button>
+                <span id="export-help" class="sr-only">Exports become available after a successful calculation.</span>
+              </div>
             </div>
             <div class="data-table-wrapper">
               <table class="data-table" id="table-monthly-results">
