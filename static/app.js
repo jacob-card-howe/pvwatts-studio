@@ -20,6 +20,8 @@ let optimizerController = null;
 let optimizerInProgress = false;
 let optimizerResult = null;
 let optimizerMessage = '';
+let scheduleController = null;
+let selectedScheduleIndex = 1;
 
 const pvwattsClient = new PVWatts.PVWattsClient();
 
@@ -31,6 +33,7 @@ const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 let chartMonthlyAc = null;
 let chartMonthlySolrad = null;
 let chartSweep = null;
+let chartSeasonal = null;
 
 // Official UMass Lowell palette used by canvas-rendered Chart.js elements.
 const UML_COLORS = Object.freeze({
@@ -336,6 +339,7 @@ function updateLocationLabels(result = currentResult) {
   const station = result?.stationInfo;
   const source = station?.weather_data_source || `${datasetLabel(result?.dataset || getSelectedDataset())} weather data`;
   label.textContent = `${currentLocation.name} · ${source}`;
+  updateCompassMagnetic();
   updateSweepAssumptions();
 }
 
@@ -483,6 +487,8 @@ function initControls() {
   document.getElementById('btn-run-optimizer').addEventListener('click', runOrientationOptimizer);
   document.getElementById('btn-cancel-optimizer').addEventListener('click', cancelOrientationOptimizer);
   document.getElementById('btn-apply-optimum').addEventListener('click', applyOptimalOrientation);
+  document.getElementById('btn-confirm-schedule').addEventListener('click', confirmTiltSchedule);
+  document.getElementById('btn-cancel-schedule').addEventListener('click', cancelTiltScheduleCheck);
   initOrientationHeatmap();
 
   document.getElementById('btn-export-json').addEventListener('click', exportJson);
@@ -495,6 +501,7 @@ function updateCompassVisual(azDeg) {
   const label = document.getElementById('compass-deg-label');
   if (needle) needle.style.transform = `rotate(${azDeg}deg)`;
   if (label) label.textContent = `${formatDecimal(azDeg)}° Azimuth`;
+  updateCompassMagnetic(azDeg);
 }
 
 function updateTiltVisual(tiltDeg) {
@@ -1121,8 +1128,13 @@ function updateOptimizerAvailability(params = getParams()) {
       : support.reason;
     help.classList.toggle('is-warning', !support.supported);
   }
+  const isStale = Boolean(optimizerResult) && optimizerResult.signature !== optimizerSignature(params);
   const stale = document.getElementById('optimizer-stale');
-  if (stale) stale.hidden = !optimizerResult || optimizerResult.signature === optimizerSignature(params);
+  if (stale) stale.hidden = !isStale;
+  const seasonalStale = document.getElementById('seasonal-stale');
+  if (seasonalStale) seasonalStale.hidden = !isStale;
+  const confirm = document.getElementById('btn-confirm-schedule');
+  if (confirm) confirm.disabled = optimizerInProgress || sweepInProgress;
 }
 
 function setOptimizerLoading(visible, status = '', detail = '', percent = 0) {
@@ -1183,6 +1195,7 @@ async function runOrientationOptimizer() {
   const apiKey = getApiKey();
   const baseTilt = params.tilt;
   const baseAzimuth = ((params.azimuth % 360) + 360) % 360;
+  const officialMonthly = new Map();
   let requestsSent = 0;
 
   button.disabled = true;
@@ -1198,6 +1211,7 @@ async function runOrientationOptimizer() {
     setOptimizerLoading(true, 'Requesting hourly weather…', `1 official PVWatts request for ${currentLocation.name} at ${orientationLabel(baseTilt, baseAzimuth)}.`, 2);
     requestsSent += 1;
     const hourlyResult = await pvwattsClient.simulateHourly(params, { apiKey, signal });
+    recordOfficialMonthly(officialMonthly, baseTilt, baseAzimuth, hourlyResult.monthlyAc);
 
     setOptimizerLoading(true, 'Checking the local model…', 'Comparing the in-browser model with the official hourly result.', 8);
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -1221,6 +1235,16 @@ async function runOrientationOptimizer() {
     });
 
     const best = search.best;
+    const seasonal = await OrientationModel.tiltSchedules(model, best.azimuth, {
+      signal,
+      onProgress: (done, total) => setOptimizerLoading(
+        true,
+        'Building seasonal tilt schedules…',
+        `${done} of ${total} tilts simulated month by month at ${formatDecimal(best.azimuth, 0)}°. No API requests.`,
+        90 + 3 * (done / total)
+      )
+    });
+
     let confirmedAcKwh = hourlyResult.annualAcKwh;
     const sameAsCurrent = best.tilt === baseTilt && (best.azimuth === baseAzimuth || best.tilt === 0);
     if (!sameAsCurrent) {
@@ -1228,6 +1252,7 @@ async function runOrientationOptimizer() {
       requestsSent += 1;
       const confirmation = await pvwattsClient.simulate({ ...params, tilt: best.tilt, azimuth: best.azimuth }, { apiKey, signal });
       confirmedAcKwh = confirmation.annualAcKwh;
+      recordOfficialMonthly(officialMonthly, best.tilt, best.azimuth, confirmation.monthlyAc);
     }
 
     optimizerResult = {
@@ -1239,6 +1264,10 @@ async function runOrientationOptimizer() {
       base: { tilt: baseTilt, azimuth: baseAzimuth, officialAcKwh: hourlyResult.annualAcKwh },
       confirmedAcKwh,
       requestsSent,
+      seasonal,
+      officialMonthly,
+      magnetic: siteDeclination(params),
+      locationName: currentLocation.name,
       station: hourlyResult.stationInfo || {},
       dataset: params.dataset
     };
@@ -1330,8 +1359,10 @@ function renderOptimizerResult(result) {
     ? `Within 1% of the optimum: tilts ${tiltText} and ${azimuthText}. Small compromises in roof pitch or direction cost little energy.`
     : `Within 1% of the optimum: tilts ${tiltText}.`;
 
+  renderOptimizerCompass(result);
   renderOptimizerMethod(result);
   renderOrientationTable(search);
+  renderSeasonalSchedules(result);
   document.getElementById('optimizer-empty').hidden = true;
   document.getElementById('optimizer-figure').hidden = false;
   drawOrientationHeatmap();
@@ -1355,6 +1386,10 @@ function renderOptimizerMethod(result) {
       ? `Local ${Math.round(best.acKwh).toLocaleString()} kWh · official ${Math.round(confirmedAcKwh).toLocaleString()} kWh (${confirmDifference >= 0 ? '+' : '−'}${formatDecimal(Math.abs(confirmDifference), 2, 2)}%)`
       : 'Same as your current orientation'],
     ['Orientations evaluated', `${coarseCount.toLocaleString()} on a 5° grid, then a 1° refinement around the best cell`],
+    ['Seasonal schedules', `Monthly energy for 91 tilts at ${formatDecimal(result.seasonal.azimuth, 0)}°, every split of the year into whole months`],
+    ['Magnetic declination', result.magnetic
+      ? `${MagneticDeclination.formatDeclination(result.magnetic.declination)} at the site (${result.magnetic.model}) · ${formatDecimal(best.azimuth, 0)}° true reads ${compassBearingText(best.azimuth, result.magnetic)} on a compass`
+      : 'Unavailable'],
     ['PVWatts requests', String(result.requestsSent)]
   ];
   const list = document.getElementById('optimizer-method-list');
@@ -1415,6 +1450,425 @@ function applyOptimalOrientation() {
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
   showToast(`Simulator set to ${orientationLabel(tilt, azimuth)}. Recalculating the official estimate.`);
+}
+
+// --- Compass bearings --------------------------------------------------------
+//
+// PVWatts azimuths are true bearings. A compass needle points to magnetic
+// north, which differs by the local magnetic declination (WMM2025, evaluated
+// in the browser by magnetic_declination.js).
+
+function siteDeclination(location = currentLocation) {
+  if (typeof MagneticDeclination === 'undefined') return null;
+  const lat = Number(location.lat);
+  const lon = Number(location.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return MagneticDeclination.declination(lat, lon);
+}
+
+function compassBearingText(trueAzimuth, site) {
+  return `${formatDecimal(MagneticDeclination.magneticBearing(trueAzimuth, site.declination), 1, 1)}°`;
+}
+
+function declinationSource(site) {
+  const when = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  return `${site.model}, ${when}${site.inRange ? '' : '; outside the model’s 2025–2030 window, so treat it as approximate'}`;
+}
+
+function updateCompassMagnetic(azimuth = readNumber('num-azimuth', 180)) {
+  const label = document.getElementById('compass-magnetic-label');
+  if (!label) return;
+  const site = siteDeclination();
+  label.textContent = site ? `${compassBearingText(azimuth, site)} magnetic` : '— magnetic';
+  label.title = site
+    ? `On a magnetic compass. Declination at ${currentLocation.name}: ${MagneticDeclination.formatDeclination(site.declination)} (${declinationSource(site)}). PVWatts azimuths are true bearings.`
+    : 'Magnetic declination is unavailable.';
+}
+
+function renderOptimizerCompass(result) {
+  const output = document.getElementById('optimizer-compass');
+  const { best, magnetic } = result;
+  output.hidden = !magnetic || best.tilt === 0;
+  if (output.hidden) return;
+  output.textContent = `On a magnetic compass, face ${compassBearingText(best.azimuth, magnetic)} to point the array at ${formatDecimal(best.azimuth, 0)}° true. `
+    + `Magnetic declination at ${result.locationName} is ${MagneticDeclination.formatDeclination(magnetic.declination)} (${declinationSource(magnetic)}). PVWatts azimuths are true bearings.`;
+}
+
+function compassExport(params) {
+  const site = siteDeclination(params);
+  if (!site) return null;
+  return {
+    model: site.model,
+    decimalYear: site.year,
+    magneticDeclinationDeg: site.declination,
+    trueAzimuthDeg: params.azimuth,
+    magneticBearingDeg: MagneticDeclination.magneticBearing(params.azimuth, site.declination)
+  };
+}
+
+// --- Seasonal tilt schedules --------------------------------------------------
+//
+// The search's calibrated model is rerun month by month for every tilt at the
+// optimal azimuth, and orientation_model.js picks the best schedule for 1, 2,
+// 4, and 12 tilt settings a year. An optional check replaces the local monthly
+// energies with official PVWatts results, one request per tilt.
+
+const SCHEDULE_NAMES = Object.freeze({ 1: 'Fixed', 2: 'Twice a year', 4: 'Four times a year', 12: 'Monthly' });
+const MONTH_SHORT = Object.freeze(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
+const MONTH_LONG = Object.freeze(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
+
+function officialKey(tilt, azimuth) {
+  return `${Number(tilt)}/${((Number(azimuth) % 360) + 360) % 360}`;
+}
+
+function recordOfficialMonthly(map, tilt, azimuth, monthlyAc) {
+  if (Array.isArray(monthlyAc) && monthlyAc.length === 12 && monthlyAc.every(Number.isFinite)) {
+    map.set(officialKey(tilt, azimuth), monthlyAc);
+  }
+}
+
+function scheduleMonthTilts(schedule) {
+  const tilts = new Array(12);
+  schedule.blocks.forEach(block => {
+    for (let i = 0; i < block.months; i += 1) tilts[(block.startMonth - 1 + i) % 12] = block.tilt;
+  });
+  return tilts;
+}
+
+// Tilts the official check still needs: the schedule's own plus the fixed
+// tilt, so the official gain compares like with like.
+function missingScheduleTilts(result, schedule) {
+  const { azimuth, schedules } = result.seasonal;
+  const tilts = new Set([...schedule.blocks.map(block => block.tilt), schedules[0].blocks[0].tilt]);
+  return [...tilts].filter(tilt => !result.officialMonthly.has(officialKey(tilt, azimuth)));
+}
+
+function officialScheduleKwh(result, schedule) {
+  let total = 0;
+  const monthTilts = scheduleMonthTilts(schedule);
+  for (let month = 0; month < 12; month += 1) {
+    const monthly = result.officialMonthly.get(officialKey(monthTilts[month], result.seasonal.azimuth));
+    if (!monthly) return null;
+    total += monthly[month];
+  }
+  return total;
+}
+
+function signedPercent(value, digits = 1) {
+  return `${value >= 0 ? '+' : '−'}${formatDecimal(Math.abs(value), digits, digits)}%`;
+}
+
+function blockPeriod(block) {
+  if (block.months === 12) return 'All year';
+  const first = block.startMonth - 1;
+  const last = (first + block.months - 1) % 12;
+  if (block.months === 1) return MONTH_LONG[first];
+  return `1 ${MONTH_SHORT[first]} – ${MONTH_DAYS[last]} ${MONTH_SHORT[last]}`;
+}
+
+function scheduleTiltSummary(schedule) {
+  const tilts = schedule.blocks.map(block => block.tilt);
+  if (tilts.length <= 4) return tilts.map(tilt => `${tilt}°`).join(' · ');
+  return `${Math.min(...tilts)}–${Math.max(...tilts)}°`;
+}
+
+function renderSeasonalSchedules(result) {
+  const { schedules } = result.seasonal;
+  const fixed = schedules[0];
+  const officialFixed = officialScheduleKwh(result, fixed);
+  selectedScheduleIndex = Math.min(Math.max(0, selectedScheduleIndex), schedules.length - 1);
+
+  const list = document.getElementById('seasonal-plan-list');
+  list.replaceChildren(...schedules.map((schedule, index) => {
+    const label = document.createElement('label');
+    label.className = 'seasonal-plan';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'seasonal-plan';
+    input.value = String(index);
+    input.className = 'sr-only';
+    input.checked = index === selectedScheduleIndex;
+    input.addEventListener('change', () => {
+      selectedScheduleIndex = index;
+      renderSeasonalSelection(optimizerResult);
+    });
+
+    const name = document.createElement('span');
+    name.className = 'seasonal-plan-name';
+    name.textContent = SCHEDULE_NAMES[schedule.settings] || `${schedule.settings} settings`;
+    const energy = document.createElement('span');
+    energy.className = 'seasonal-plan-energy';
+    energy.textContent = `${Math.round(schedule.annualKwh).toLocaleString()} kWh`;
+    const gain = document.createElement('span');
+    gain.className = 'seasonal-plan-gain';
+    if (index === 0) {
+      gain.classList.add('is-baseline');
+      gain.textContent = 'Baseline';
+    } else {
+      gain.textContent = `${signedPercent((schedule.annualKwh / fixed.annualKwh - 1) * 100)} vs fixed`;
+    }
+    const tilts = document.createElement('span');
+    tilts.className = 'seasonal-plan-tilts';
+    tilts.textContent = scheduleTiltSummary(schedule);
+    label.append(input, name, energy, gain, tilts);
+
+    const official = officialScheduleKwh(result, schedule);
+    if (official !== null) {
+      const check = document.createElement('span');
+      check.className = 'seasonal-plan-official';
+      check.textContent = index === 0 || officialFixed === null
+        ? `Official ${Math.round(official).toLocaleString()} kWh`
+        : `Official ${signedPercent((official / officialFixed - 1) * 100)}`;
+      label.appendChild(check);
+    }
+    return label;
+  }));
+
+  document.getElementById('seasonal-empty').hidden = true;
+  document.getElementById('seasonal-results').hidden = false;
+  renderSeasonalSelection(result);
+}
+
+function renderSeasonalSelection(result) {
+  if (!result?.seasonal) return;
+  const { seasonal } = result;
+  const schedule = seasonal.schedules[selectedScheduleIndex];
+  const fixed = seasonal.schedules[0];
+  const name = SCHEDULE_NAMES[schedule.settings] || `${schedule.settings} settings`;
+  const distinct = schedule.blocks.length;
+
+  document.getElementById('seasonal-schedule-heading').textContent =
+    `${name} · ${distinct} ${distinct === 1 ? 'setting' : 'settings'}`;
+  const list = document.getElementById('seasonal-schedule-list');
+  list.classList.toggle('is-compact', distinct > 4);
+  list.replaceChildren(...[...schedule.blocks]
+    .sort((a, b) => a.startMonth - b.startMonth)
+    .map(block => {
+      const item = document.createElement('li');
+      const period = document.createElement('span');
+      period.className = 'seasonal-period';
+      period.textContent = blockPeriod(block);
+      const tilt = document.createElement('strong');
+      tilt.textContent = `${block.tilt}°`;
+      const energy = document.createElement('span');
+      energy.className = 'seasonal-block-energy';
+      energy.textContent = `${Math.round(block.kwh).toLocaleString()} kWh`;
+      item.append(period, tilt, energy);
+      return item;
+    }));
+
+  const notes = [];
+  if (distinct < schedule.settings && schedule.settings > 1) {
+    notes.push(`Only ${distinct} different ${distinct === 1 ? 'setting pays' : 'settings pay'} off, so neighbouring periods share a tilt.`);
+  }
+  const bearing = result.magnetic ? ` (${compassBearingText(seasonal.azimuth, result.magnetic)} on a magnetic compass)` : '';
+  notes.push(`Azimuth stays at ${formatDecimal(seasonal.azimuth, 0)}° true${bearing}; tilt changes on the first of the month.`);
+  if (Number(result.params.arrayType) === 0) {
+    notes.push(`Row spacing stays at GCR ${formatDecimal(result.params.groundCoverageRatio)}, so steeper winter tilts include their extra row-to-row shading.`);
+  }
+  if (schedule !== fixed) {
+    notes.push(`Estimated gain over a fixed ${fixed.blocks[0].tilt}° tilt: ${Math.round(schedule.annualKwh - fixed.annualKwh).toLocaleString()} kWh a year.`);
+  }
+  document.getElementById('seasonal-note').textContent = notes.join(' ');
+
+  updateScheduleConfirm(result, schedule);
+  renderSeasonalTable(result, schedule);
+  drawSeasonalChart(result, schedule, name);
+}
+
+function updateScheduleConfirm(result, schedule) {
+  const button = document.getElementById('btn-confirm-schedule');
+  const help = document.getElementById('seasonal-confirm-help');
+  if (scheduleController) return;
+  const missing = missingScheduleTilts(result, schedule);
+  const official = officialScheduleKwh(result, schedule);
+  const officialFixed = officialScheduleKwh(result, result.seasonal.schedules[0]);
+  button.hidden = missing.length === 0;
+  button.disabled = optimizerInProgress || sweepInProgress;
+  button.textContent = `Confirm with PVWatts · ${missing.length} ${missing.length === 1 ? 'request' : 'requests'}`;
+  if (missing.length === 0 && official !== null) {
+    const gain = officialFixed && schedule !== result.seasonal.schedules[0]
+      ? `, ${signedPercent((official / officialFixed - 1) * 100)} over fixed`
+      : '';
+    help.textContent = `Official PVWatts v8: ${Math.round(official).toLocaleString()} kWh a year${gain}, from official monthly results at each tilt.`;
+  } else {
+    help.textContent = 'Values are calibrated local estimates. The check sends one PVWatts request per tilt not yet run officially and adds up the official monthly energy.';
+  }
+}
+
+function renderSeasonalTable(result, schedule) {
+  const { seasonal } = result;
+  const monthTilts = scheduleMonthTilts(schedule);
+  const energyAt = (tilt, month) => seasonal.monthlyKwh[seasonal.tilts.indexOf(tilt) * 12 + month];
+  const cell = (tag, text) => {
+    const element = document.createElement(tag);
+    element.textContent = text;
+    if (tag === 'th') element.scope = 'row';
+    return element;
+  };
+  const rows = MONTH_LONG.map((month, index) => {
+    const row = document.createElement('tr');
+    const declination = seasonal.declination[index];
+    row.append(
+      cell('th', month),
+      cell('td', `${declination >= 0 ? '+' : '−'}${formatDecimal(Math.abs(declination), 1, 1)}°`),
+      cell('td', seasonal.noonSunTilt ? `${formatDecimal(seasonal.noonSunTilt[index], 1, 1)}°` : '—'),
+      cell('td', `${seasonal.monthlyBest[index].tilt}°`),
+      cell('td', Math.round(seasonal.monthlyBest[index].kwh).toLocaleString()),
+      cell('td', `${monthTilts[index]}°`),
+      cell('td', Math.round(energyAt(monthTilts[index], index)).toLocaleString())
+    );
+    return row;
+  });
+  const total = document.createElement('tr');
+  total.append(
+    cell('th', 'Year'),
+    cell('td', ''),
+    cell('td', ''),
+    cell('td', ''),
+    cell('td', Math.round(seasonal.monthlyBest.reduce((sum, month) => sum + month.kwh, 0)).toLocaleString()),
+    cell('td', ''),
+    cell('td', Math.round(schedule.annualKwh).toLocaleString())
+  );
+  document.getElementById('seasonal-table-body').replaceChildren(...rows, total);
+}
+
+function drawSeasonalChart(result, schedule, name) {
+  const canvas = document.getElementById('chart-seasonal');
+  if (!canvas) return;
+  if (typeof Chart === 'undefined') {
+    showChartFallback('chart-seasonal');
+    return;
+  }
+  const { seasonal } = result;
+  const datasets = [
+    {
+      label: `${name} schedule`,
+      data: scheduleMonthTilts(schedule),
+      stepped: 'middle',
+      borderColor: UML_COLORS.green,
+      backgroundColor: UML_COLORS.green,
+      borderWidth: 3,
+      pointRadius: 0,
+      pointHoverRadius: 4
+    },
+    {
+      label: 'Best tilt each month',
+      data: seasonal.monthlyBest.map(month => month.tilt),
+      showLine: false,
+      borderColor: UML_COLORS.yellow,
+      backgroundColor: UML_COLORS.yellow,
+      pointRadius: 4,
+      pointHoverRadius: 6
+    }
+  ];
+  if (seasonal.noonSunTilt) {
+    datasets.push({
+      label: 'Noon-sun tilt, |latitude − declination|',
+      data: seasonal.noonSunTilt.map(tilt => Math.round(tilt * 10) / 10),
+      borderColor: UML_COLORS.lightBlue,
+      backgroundColor: UML_COLORS.lightBlue,
+      borderDash: [5, 4],
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      tension: 0.3
+    });
+  }
+  canvas.setAttribute('aria-label',
+    `Line chart of tilt by month. The ${name.toLowerCase()} schedule uses ${scheduleTiltSummary(schedule)}; the best tilt each month ranges from ${Math.min(...seasonal.monthlyBest.map(month => month.tilt))} to ${Math.max(...seasonal.monthlyBest.map(month => month.tilt))} degrees.`);
+
+  if (chartSeasonal) {
+    chartSeasonal.data.datasets = datasets;
+    chartSeasonal.update('none');
+    return;
+  }
+  chartSeasonal = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels: MONTH_SHORT, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { color: UML_COLORS.textSecondary, usePointStyle: true, boxWidth: 8 } },
+        tooltip: {
+          backgroundColor: UML_COLORS.tooltipBackground,
+          titleColor: UML_COLORS.textPrimary,
+          bodyColor: UML_COLORS.textPrimary,
+          borderColor: UML_COLORS.tooltipBorder,
+          borderWidth: 1,
+          callbacks: { label: context => `${context.dataset.label}: ${formatDecimal(context.parsed.y, 1)}°` }
+        }
+      },
+      scales: {
+        x: { grid: { color: UML_COLORS.gridLine }, ticks: { color: UML_COLORS.textSecondary } },
+        y: {
+          min: 0,
+          max: 90,
+          grid: { color: UML_COLORS.gridLine },
+          ticks: { color: UML_COLORS.textSecondary, stepSize: 15, callback: value => `${value}°` },
+          title: { display: true, text: 'Tilt', color: UML_COLORS.textSecondary }
+        }
+      }
+    }
+  });
+}
+
+// Official check for the selected schedule: one request per missing tilt at
+// the schedule's azimuth, holding every other input of the original search.
+async function confirmTiltSchedule() {
+  const result = optimizerResult;
+  if (!result?.seasonal || optimizerInProgress || sweepInProgress || scheduleController) return;
+  const schedule = result.seasonal.schedules[selectedScheduleIndex];
+  const { azimuth } = result.seasonal;
+  const missing = missingScheduleTilts(result, schedule);
+  if (!missing.length) return;
+
+  const button = document.getElementById('btn-confirm-schedule');
+  const cancelButton = document.getElementById('btn-cancel-schedule');
+  const help = document.getElementById('seasonal-confirm-help');
+  // Shares the search's busy flag so the search and the grid wait for it.
+  optimizerInProgress = true;
+  scheduleController = new AbortController();
+  const { signal } = scheduleController;
+  const apiKey = getApiKey();
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  cancelButton.hidden = false;
+  document.getElementById('btn-run-sweep').disabled = true;
+  updateOptimizerAvailability();
+
+  let sent = 0;
+  try {
+    for (const tilt of missing) {
+      help.textContent = `Request ${sent + 1} of ${missing.length}: ${tilt}° tilt at ${formatDecimal(azimuth, 0)}°.`;
+      const official = await pvwattsClient.simulate({ ...result.params, tilt, azimuth }, { apiKey, signal });
+      sent += 1;
+      recordOfficialMonthly(result.officialMonthly, tilt, azimuth, official.monthlyAc);
+    }
+    showToast(`Schedule checked with ${sent} PVWatts ${sent === 1 ? 'request' : 'requests'}.`);
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      showToast('Schedule check cancelled. No further requests were sent.');
+    } else {
+      console.error('Schedule check failed:', error);
+      showToast(`Schedule check stopped: ${error.message}`, 'error');
+    }
+  } finally {
+    optimizerInProgress = false;
+    scheduleController = null;
+    button.removeAttribute('aria-busy');
+    cancelButton.hidden = true;
+    document.getElementById('btn-run-sweep').disabled = !document.getElementById('sweep-quota-ack').checked;
+    if (optimizerResult === result) renderSeasonalSchedules(result);
+    updateOptimizerAvailability();
+  }
+}
+
+function cancelTiltScheduleCheck() {
+  scheduleController?.abort();
 }
 
 // --- Heatmap ---------------------------------------------------------------
@@ -1595,6 +2049,7 @@ function exportJson() {
     model: currentResult.model,
     parameters: params,
     results: currentResult,
+    compass: compassExport(params),
     timestamp: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

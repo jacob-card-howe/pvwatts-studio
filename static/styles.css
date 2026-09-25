@@ -1343,6 +1343,13 @@ button svg,
   color: var(--uml-light-blue);
 }
 
+.dial-note {
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
 .results-table-header {
   flex-wrap: wrap;
   gap: 0.75rem;
@@ -1548,6 +1555,16 @@ button svg,
   font-size: 0.875rem;
 }
 
+.optimizer-compass {
+  max-width: 80ch;
+  margin-top: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--accent-info);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 .optimizer-stale {
   margin-top: 0.75rem;
   padding: 0.55rem 0.8rem;
@@ -1675,6 +1692,190 @@ button svg,
   border-top: 1px solid var(--border-subtle);
 }
 
+/* Seasonal tilt schedule */
+.seasonal-empty {
+  min-height: 8rem;
+  text-align: center;
+}
+
+.seasonal-plans {
+  min-width: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.seasonal-legend {
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.775rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.seasonal-plan-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.seasonal-plan {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.seasonal-plan:hover {
+  border-color: var(--border-color);
+}
+
+.seasonal-plan:has(input:checked) {
+  border-color: var(--accent-solar);
+  background: rgba(255, 209, 64, 0.07);
+  box-shadow: inset 0 0 0 1px var(--accent-solar);
+}
+
+.seasonal-plan:has(input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.seasonal-plan-name {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.seasonal-plan-energy {
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.seasonal-plan-gain {
+  color: var(--accent-success);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.seasonal-plan-gain.is-baseline {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.seasonal-plan-tilts {
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.seasonal-plan-official {
+  color: var(--uml-light-blue);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.seasonal-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(17rem, 1fr);
+  gap: 1rem;
+}
+
+.seasonal-figure,
+.seasonal-side {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+}
+
+.seasonal-figure {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.seasonal-chart {
+  position: relative;
+  height: 300px;
+}
+
+.seasonal-side h3 {
+  margin-bottom: 0.65rem;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.seasonal-schedule-list {
+  display: grid;
+  gap: 0.4rem;
+  list-style: none;
+}
+
+.seasonal-schedule-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.1rem 0.75rem;
+  padding: 0.45rem 0.65rem;
+  border-left: 3px solid var(--accent-success);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: rgba(0, 57, 110, 0.35);
+}
+
+.seasonal-period {
+  color: var(--text-primary);
+  font-size: 0.825rem;
+}
+
+.seasonal-schedule-list strong {
+  color: var(--accent-success);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1rem;
+}
+
+.seasonal-block-energy {
+  grid-column: 1 / -1;
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.seasonal-schedule-list.is-compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.seasonal-schedule-list.is-compact .seasonal-block-energy {
+  display: none;
+}
+
+.seasonal-note {
+  margin-top: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.seasonal-side #seasonal-confirm-help {
+  margin-top: 0.55rem;
+}
+
 .sweep-data-table {
   min-width: 780px;
   font-variant-numeric: tabular-nums;
@@ -1760,8 +1961,13 @@ button svg,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sweep-setup-grid {
+  .sweep-setup-grid,
+  .seasonal-detail {
     grid-template-columns: 1fr;
+  }
+
+  .seasonal-plan-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1902,6 +2108,10 @@ button svg,
     height: 280px;
   }
 
+  .seasonal-chart {
+    height: 260px;
+  }
+
   .data-table {
     min-width: 760px;
   }
@@ -1986,8 +2196,15 @@ button svg,
   .simulation-status,
   .selected-location,
   .sweep-assumptions,
-  .sweep-run-panel {
+  .sweep-run-panel,
+  .seasonal-plan,
+  .seasonal-figure,
+  .seasonal-side {
     border: 1px solid CanvasText;
+  }
+
+  .seasonal-plan:has(input:checked) {
+    outline: 2px solid Highlight;
   }
 
   .nav-tab-btn.active,

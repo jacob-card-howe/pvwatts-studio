@@ -130,6 +130,11 @@
     return { declination, eot };
   }
 
+  /** Solar declination (degrees) at noon UT on a calendar day of the model year. */
+  function solarDeclination(month, day, year = 1997) {
+    return solarTerms(julianDay(year, month, day, 12)).declination / DEG;
+  }
+
   /**
    * Sunrise and sunset in local standard hours, evaluated at local noon like
    * SSC. Returns -100/100 for polar day and 100/-100 for polar night.
@@ -617,10 +622,11 @@
   /**
    * Simulate one orientation. Returns annual AC energy (kWh) and plane-of-array
    * insolation (kWh/m2). With `hourly: true` it also returns hourly POA and AC
-   * arrays for comparison with the official hourly response. `exact: true`
-   * solves the single-diode model directly instead of using the lookup table.
+   * arrays for comparison with the official hourly response, and with
+   * `monthly: true` twelve monthly AC totals (kWh). `exact: true` solves the
+   * single-diode model directly instead of using the lookup table.
    */
-  function simulate(prepared, sys, tiltDeg, azimuthDeg, { hourly = false, exact = false } = {}) {
+  function simulate(prepared, sys, tiltDeg, azimuthDeg, { hourly = false, monthly = false, exact = false } = {}) {
     const tilt = tiltDeg * DEG;
     const azimuth = ((azimuthDeg % 360) + 360) % 360;
     const azimuthR = azimuth * DEG;
@@ -641,6 +647,7 @@
     const hourlyAc = hourly ? new Float64Array(HOURS_PER_YEAR) : null;
     const hourlyDc = hourly ? new Float64Array(HOURS_PER_YEAR) : null;
     const hourlyTcell = hourly ? new Float64Array(HOURS_PER_YEAR) : null;
+    const monthlyAcWh = monthly ? new Float64Array(12) : null;
     let acWh = 0;
     let poaWh = 0;
 
@@ -740,6 +747,7 @@
       }
       if (ac < 0) ac = 0;
       acWh += ac;
+      if (monthly) monthlyAcWh[prepared.month[k] - 1] += ac;
 
       if (hourly) {
         const idx = prepared.index[k];
@@ -751,6 +759,7 @@
     }
 
     const result = { tilt: tiltDeg, azimuth, acKwh: acWh / 1000, poaKwhM2: poaWh / 1000 };
+    if (monthly) result.monthlyAcKwh = Array.from(monthlyAcWh, value => value / 1000);
     if (hourly) {
       result.hourlyPoa = hourlyPoa;
       result.hourlyDc = hourlyDc;
@@ -901,6 +910,165 @@
     return simulate(model.prepared, model.system, tilt, azimuth).acKwh * model.scale;
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Seasonal tilt schedules                                             */
+  /* ------------------------------------------------------------------ */
+
+  // Tilt settings per year for an adjustable rack: fixed, twice a year,
+  // four times a year, and monthly.
+  const SCHEDULE_SETTINGS = Object.freeze([1, 2, 4, 12]);
+
+  /** Every increasing choice of `count` month indexes from 0-11. */
+  function monthCuts(count) {
+    const cuts = [];
+    const chosen = [];
+    const pick = start => {
+      if (chosen.length === count) {
+        cuts.push(chosen.slice());
+        return;
+      }
+      for (let m = start; m <= 12 - (count - chosen.length); m += 1) {
+        chosen.push(m);
+        pick(m + 1);
+        chosen.pop();
+      }
+    };
+    pick(0);
+    return cuts;
+  }
+
+  /** Join neighbouring blocks that settled on the same tilt, across the new year too. */
+  function mergeBlocks(blocks) {
+    const merged = [];
+    for (const block of blocks) {
+      const last = merged[merged.length - 1];
+      if (last && last.tilt === block.tilt) {
+        last.months += block.months;
+        last.kwh += block.kwh;
+      } else {
+        merged.push({ ...block });
+      }
+    }
+    if (merged.length > 1 && merged[0].tilt === merged[merged.length - 1].tilt) {
+      const tail = merged.pop();
+      merged[0] = { ...merged[0], startMonth: tail.startMonth, months: merged[0].months + tail.months, kwh: merged[0].kwh + tail.kwh };
+    }
+    return merged;
+  }
+
+  /**
+   * Best schedule with at most `settings` tilt settings a year, from monthly
+   * energy by tilt (`monthlyKwh[tiltIndex * 12 + month]`). Each setting holds
+   * for a run of whole months, wrapping over the new year, so the rack is
+   * re-tilted on the first of a month. Every split of the year is checked.
+   */
+  function bestSchedule(tilts, monthlyKwh, settings) {
+    const n = tilts.length;
+    // runs[start][length]: the best single tilt for a run of months.
+    const runs = [];
+    for (let start = 0; start < 12; start += 1) {
+      const sums = new Float64Array(n);
+      const row = [null];
+      for (let length = 1; length <= 12; length += 1) {
+        const month = (start + length - 1) % 12;
+        let bestTi = 0;
+        for (let ti = 0; ti < n; ti += 1) {
+          sums[ti] += monthlyKwh[ti * 12 + month];
+          if (sums[ti] > sums[bestTi]) bestTi = ti;
+        }
+        row.push({ ti: bestTi, kwh: sums[bestTi] });
+      }
+      runs.push(row);
+    }
+
+    let best = null;
+    for (const cuts of settings <= 1 ? [[0]] : monthCuts(Math.min(settings, 12))) {
+      let annualKwh = 0;
+      const blocks = cuts.map((start, i) => {
+        const months = (i + 1 < cuts.length ? cuts[i + 1] : cuts[0] + 12) - start;
+        const run = runs[start][months];
+        annualKwh += run.kwh;
+        return { startMonth: start + 1, months, tilt: tilts[run.ti], kwh: run.kwh };
+      });
+      if (!best || annualKwh > best.annualKwh + 1e-9) best = { settings, annualKwh, blocks };
+    }
+    best.blocks = mergeBlocks(best.blocks);
+    return best;
+  }
+
+  /**
+   * Monthly mean solar declination and, for an array facing the equator, the
+   * tilt that points straight at the noon sun: |latitude - declination|,
+   * floored at 0 when the noon sun is behind the array.
+   */
+  function noonSunReference(lat, azimuth) {
+    const facing = Math.cos(azimuth * DEG);
+    const equatorFacing = lat >= 0 ? facing < -Math.SQRT1_2 : facing > Math.SQRT1_2;
+    const declination = [];
+    const noonSunTilt = [];
+    for (let m = 0; m < 12; m += 1) {
+      let sumDeclination = 0;
+      let sumTilt = 0;
+      for (let d = 1; d <= DAYS_IN_MONTH[m]; d += 1) {
+        const delta = solarDeclination(m + 1, d);
+        sumDeclination += delta;
+        sumTilt += Math.max(0, lat >= 0 ? lat - delta : delta - lat);
+      }
+      declination.push(sumDeclination / DAYS_IN_MONTH[m]);
+      noonSunTilt.push(sumTilt / DAYS_IN_MONTH[m]);
+    }
+    return { declination, noonSunTilt: equatorFacing ? noonSunTilt : null };
+  }
+
+  /**
+   * Monthly energy for every tilt from 0 to 90 degrees at one azimuth, and the
+   * best schedule for a rack re-tilted 1, 2, 4, or 12 times a year. Energies
+   * are scaled by the calibration factor. `onProgress(done, total)` reports
+   * progress; `signal` cancels between chunks.
+   */
+  async function tiltSchedules(model, azimuthDeg, {
+    settings = SCHEDULE_SETTINGS,
+    onProgress = () => {},
+    signal,
+    chunkMs = 30
+  } = {}) {
+    const { prepared, system, scale } = model;
+    const azimuth = ((azimuthDeg % 360) + 360) % 360;
+    const tilts = range(0, 90, 1);
+    const monthlyKwh = new Float64Array(tilts.length * 12);
+    let chunkStart = Date.now();
+    for (let ti = 0; ti < tilts.length; ti += 1) {
+      const run = simulate(prepared, system, tilts[ti], azimuth, { monthly: true });
+      for (let m = 0; m < 12; m += 1) monthlyKwh[ti * 12 + m] = run.monthlyAcKwh[m] * scale;
+      if (Date.now() - chunkStart >= chunkMs) {
+        onProgress(ti + 1, tilts.length);
+        await nextFrame();
+        if (signal?.aborted) throw new DOMException('Schedule search cancelled', 'AbortError');
+        chunkStart = Date.now();
+      }
+    }
+    onProgress(tilts.length, tilts.length);
+
+    const monthlyBest = [];
+    for (let m = 0; m < 12; m += 1) {
+      let bestTi = 0;
+      for (let ti = 1; ti < tilts.length; ti += 1) {
+        if (monthlyKwh[ti * 12 + m] > monthlyKwh[bestTi * 12 + m]) bestTi = ti;
+      }
+      monthlyBest.push({ tilt: tilts[bestTi], kwh: monthlyKwh[bestTi * 12 + m] });
+    }
+    const reference = noonSunReference(prepared.lat, azimuth);
+    return {
+      azimuth,
+      tilts,
+      monthlyKwh,
+      monthlyBest,
+      declination: reference.declination,
+      noonSunTilt: reference.noonSunTilt,
+      schedules: settings.map(count => bestSchedule(tilts, monthlyKwh, count))
+    };
+  }
+
   /**
    * Pull hourly weather and station metadata out of an official PVWatts v8
    * JSON response requested with timeframe=hourly.
@@ -947,6 +1115,10 @@
     calibrate,
     optimize,
     evaluate,
+    SCHEDULE_SETTINGS,
+    bestSchedule,
+    tiltSchedules,
+    solarDeclination,
     weatherFromPvwattsResponse,
     cecModulePower,
     sunPosition,

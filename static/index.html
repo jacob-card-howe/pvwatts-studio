@@ -225,6 +225,7 @@
                   <div class="compass-dot"></div>
                 </div>
                 <output id="compass-deg-label" class="dial-value dial-value-solar">180° south</output>
+                <output id="compass-magnetic-label" class="dial-note" title="PVWatts azimuths are true bearings. This is the reading on a magnetic compass, from the World Magnetic Model.">— magnetic</output>
               </div>
 
               <div class="dial-wrapper">
@@ -533,6 +534,7 @@
             <p id="optimizer-plateau" class="optimizer-plateau"></p>
             <button id="btn-apply-optimum" class="btn btn-outline" type="button">Use this orientation in the simulator</button>
           </div>
+          <p id="optimizer-compass" class="optimizer-compass"></p>
           <p id="optimizer-stale" class="optimizer-stale" role="status" hidden>Your system inputs changed after this search. Run it again to update the result.</p>
         </div>
 
@@ -577,6 +579,76 @@
           <dl id="optimizer-method-list" class="optimizer-method-list"></dl>
           <p class="field-help">The local model reimplements the fixed-array path of PVWatts v8 from the open-source SAM Simulation Core: sun position, the Perez sky model, row-to-row self-shading, soiling, cover and spectral losses, cell temperature, the single-diode module model, DC losses, and the inverter. One factor scales every local value so it matches the official result at your current orientation. The optimum itself always comes from an official PVWatts request.</p>
         </details>
+      </section>
+
+      <section class="card parametric-card" aria-labelledby="seasonal-heading">
+        <div class="parametric-intro">
+          <div>
+            <h2 id="seasonal-heading" class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="17" rx="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <polyline points="6 17 10 13 13 15 18 11"></polyline>
+              </svg>
+              Seasonal tilt schedule
+            </h2>
+            <p class="section-intro">The sun's declination swings from +23.45° at the June solstice to −23.45° at the December solstice, so the tilt that faces the noon sun changes by about 47° over a year. An adjustable rack can follow part of that swing. Compare one fixed tilt with re-tilting 2, 4, or 12 times a year at the optimal azimuth.</p>
+          </div>
+          <span class="request-count">No extra requests</span>
+        </div>
+
+        <p id="seasonal-empty" class="chart-empty seasonal-empty">Run the optimal orientation search above. The schedules reuse its weather and calibrated model, so they need no extra API requests.</p>
+
+        <div id="seasonal-results" class="seasonal-results" hidden>
+          <fieldset class="seasonal-plans">
+            <legend class="seasonal-legend">Tilt settings per year</legend>
+            <div id="seasonal-plan-list" class="seasonal-plan-list"></div>
+          </fieldset>
+
+          <div class="seasonal-detail">
+            <figure class="seasonal-figure">
+              <figcaption class="orientation-figure-title">Tilt through the year</figcaption>
+              <div class="seasonal-chart">
+                <canvas id="chart-seasonal" role="img" aria-label="Line chart of the selected tilt schedule, the best tilt each month, and the noon-sun tilt" aria-describedby="seasonal-data-caption">A table of the same values follows the chart.</canvas>
+                <p id="chart-seasonal-fallback" class="chart-fallback" hidden>Chart rendering is unavailable. Use the schedule data table below.</p>
+              </div>
+            </figure>
+            <section class="seasonal-side" aria-labelledby="seasonal-schedule-heading">
+              <h3 id="seasonal-schedule-heading">Schedule</h3>
+              <ol id="seasonal-schedule-list" class="seasonal-schedule-list"></ol>
+              <p id="seasonal-note" class="seasonal-note"></p>
+              <div class="sweep-actions">
+                <button id="btn-confirm-schedule" class="btn btn-outline" type="button" aria-describedby="seasonal-confirm-help">Confirm with PVWatts</button>
+                <button id="btn-cancel-schedule" class="btn btn-outline" type="button" hidden>Cancel</button>
+              </div>
+              <p id="seasonal-confirm-help" class="field-help" role="status" aria-live="polite"></p>
+            </section>
+          </div>
+          <p id="seasonal-stale" class="optimizer-stale" role="status" hidden>Your system inputs changed after the search. Run it again to update the schedules.</p>
+
+          <details id="seasonal-data-panel" class="sweep-data-panel">
+            <summary>View accessible schedule data</summary>
+            <div class="data-table-wrapper">
+              <table class="data-table sweep-data-table">
+                <caption id="seasonal-data-caption">Monthly solar declination, the tilt that faces the noon sun, the best tilt each month, and the selected schedule, with estimated AC energy from the calibrated local model.</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Month</th>
+                    <th scope="col">Mean declination</th>
+                    <th scope="col">Noon-sun tilt</th>
+                    <th scope="col">Best tilt</th>
+                    <th scope="col">AC at best tilt (kWh)</th>
+                    <th scope="col">Schedule tilt</th>
+                    <th scope="col">AC on schedule (kWh)</th>
+                  </tr>
+                </thead>
+                <tbody id="seasonal-table-body"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
       </section>
 
       <section class="card parametric-card" aria-labelledby="sweep-heading">
@@ -889,6 +961,7 @@
       product of NLR (formerly NREL), the U.S. Department of Energy, or the PVWatts program. This
       web app's estimates come from the public PVWatts API; its orientation search adds an independent
       in-browser model adapted from the open-source SAM Simulation Core and confirms the result with the API.
+      Compass bearings use the World Magnetic Model (WMM2025) from NOAA NCEI and the British Geological Survey.
       PVWatts® and related marks belong to their respective owners.
     </p>
     <div class="footer-links">
@@ -910,6 +983,7 @@
 
   <script src="pvwatts_client.js"></script>
   <script src="orientation_model.js"></script>
+  <script src="magnetic_declination.js"></script>
   <script src="datasheet_parser.js"></script>
   <script src="app.js"></script>
   <script src="datasheet.js"></script>
