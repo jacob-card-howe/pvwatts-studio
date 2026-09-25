@@ -460,6 +460,24 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("chip.setAttribute('aria-pressed'", self.news)
         self.assertIn("newsState.query", self.news)
 
+    def test_every_news_topic_has_an_accent_color(self):
+        # Each row carries a data-topic key that picks one UML accent,
+        # so each published category needs a matching rule in the stylesheet.
+        self.assertIn("row.dataset.topic = newsTopicKey(item.category)", self.news)
+        payload = json.loads((ROOT / "static" / "news.json").read_text(encoding="utf-8"))
+        for category in payload["categories"]:
+            key = re.sub(r"[^a-z0-9]+", "-", category.lower())
+            with self.subTest(category=category):
+                self.assertRegex(self.styles, rf'\[data-topic="{key}"\] \{{ --topic-color: var\(--uml-[a-z-]+\); \}}')
+        self.assertIn("color: var(--topic-color);", self.styles)
+
+    def test_news_all_filter_is_an_x_that_keeps_its_name(self):
+        # The "all" chip shows only an X, so its label moves to aria-label.
+        self.assertIn("createNewsClearChip(allLabel", self.news)
+        self.assertIn("chip.setAttribute('aria-label', label)", self.news)
+        # Topics stay on one row instead of wrapping.
+        self.assertRegex(self.styles, r"#news-filter-category \{\s*flex-wrap: nowrap;")
+
     def test_news_filter_rows_collapse_behind_a_disclosure(self):
         # The chip rows start closed so the headlines sit near the top of the
         # tab; each summary still names the active choice.
