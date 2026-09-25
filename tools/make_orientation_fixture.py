@@ -9,7 +9,9 @@ file that ships with pvlib, and records:
   header, exactly as an hourly API response would carry them;
 - the official hourly plane-of-array irradiance at 20 degrees / 180 degrees;
 - annual AC energy for several systems and orientations;
-- a brute-force 1-degree search around the optimum for one system.
+- a brute-force 1-degree search around the optimum for one system;
+- monthly AC energy for every tilt from 0 to 90 degrees at one azimuth, with
+  the best seasonal tilt schedules found by checking every split of the year.
 
 This is a development tool, not part of the site. It needs third-party packages:
 
@@ -17,6 +19,7 @@ This is a development tool, not part of the site. It needs third-party packages:
     python tools/make_orientation_fixture.py
 """
 
+import itertools
 import json
 import os
 from pathlib import Path
@@ -40,6 +43,9 @@ ORIENTATIONS = [(0, 180), (10, 180), (20, 180), (30, 180), (40, 180), (60, 180),
 SEARCH_SYSTEM = "standard_rack_50kw"
 SEARCH_TILTS = range(22, 37)
 SEARCH_AZIMUTHS = range(170, 196)
+SEASONAL_SYSTEM = "standard_rack_4kw"
+SEASONAL_AZIMUTH = 180
+SEASONAL_SETTINGS = (1, 2, 4, 12)
 
 
 def run(system, tilt, azimuth):
@@ -65,6 +71,25 @@ def run(system, tilt, azimuth):
 
 def rounded(values, digits):
     return [round(float(value), digits) for value in values]
+
+
+def best_schedule(monthly, settings):
+    """Brute-force the best tilt schedule with `settings` runs of whole months."""
+    tilts = range(len(monthly))
+    best = None
+    splits = [(0,)] if settings == 1 else itertools.combinations(range(12), settings)
+    for cuts in splits:
+        blocks = []
+        for i, start in enumerate(cuts):
+            end = cuts[i + 1] if i + 1 < len(cuts) else cuts[0] + 12
+            months = [m % 12 for m in range(start, end)]
+            tilt = max(tilts, key=lambda t: sum(monthly[t][m] for m in months))
+            blocks.append({"start_month": start + 1, "months": len(months), "tilt": tilt,
+                           "ac": sum(monthly[tilt][m] for m in months)})
+        total = sum(block["ac"] for block in blocks)
+        if best is None or total > best["ac_annual"]:
+            best = {"settings": settings, "ac_annual": total, "blocks": blocks}
+    return best
 
 
 def main():
@@ -96,6 +121,15 @@ def main():
     fixture["search"]["grid"] = grid
     fixture["search"]["best"] = {"tilt": int(best.split(",")[0]), "azimuth": int(best.split(",")[1]),
                                  "ac_annual": grid[best]}
+
+    monthly = [rounded(run(SYSTEMS[SEASONAL_SYSTEM], tilt, SEASONAL_AZIMUTH)["ac_monthly"], 3)
+               for tilt in range(0, 91)]
+    fixture["seasonal"] = {
+        "system": SEASONAL_SYSTEM,
+        "azimuth": SEASONAL_AZIMUTH,
+        "monthly_ac": monthly,
+        "schedules": [best_schedule(monthly, settings) for settings in SEASONAL_SETTINGS],
+    }
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(fixture, separators=(",", ":")) + "\n", encoding="utf-8")

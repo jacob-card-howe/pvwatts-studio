@@ -1,6 +1,6 @@
 # PVWatts Studio
 
-A small, dependency-free static web interface for the official **PVWatts® v8 API**. It provides location search, monthly production charts, exports, advanced model inputs, and an optimal tilt/azimuth search.
+A small, dependency-free static web interface for the official **PVWatts® v8 API**. It provides location search, monthly production charts, exports, advanced model inputs, an optimal tilt/azimuth search, and seasonal tilt schedules for adjustable racks.
 
 The site is plain HTML, CSS, and JavaScript with no backend and no build step. The browser calls the PVWatts and geocoding services directly, so it can be hosted on any static host, including a free Cloudflare Pages project.
 
@@ -51,6 +51,8 @@ Both upstream services send `Access-Control-Allow-Origin: *` on success and on e
 - Monthly and annual production, solar resource, capacity factor, and weather-grid metadata
 - JSON and CSV exports
 - An optimal tilt/azimuth search that costs two PVWatts requests: one hourly request supplies the weather, the browser searches every orientation, and one request confirms the winner
+- Seasonal tilt schedules for adjustable racks (fixed, 2, 4, or 12 settings a year) built from the same search, with no extra requests unless you ask for an official check
+- Magnetic compass bearings for true azimuths, from the World Magnetic Model evaluated in the browser
 - The original 77-combination tilt/azimuth grid, run entirely through the official API, for verification
 - A **Solar News** view that lists photovoltaic headlines from publisher feeds, filterable by topic, source, and free-text search, with every entry linking to the publisher
 - A module datasheet reader that pulls specifications out of a manufacturer PDF into an editable table and works the standard datasheet calculations
@@ -90,6 +92,20 @@ The model follows the SSC `pvwattsv8` compute module (the code the PVWatts API r
 Against NREL-PySAM's `Pvwattsv8` module on real TMY3 files (Greensboro, NC and Sand Point, AK), the local annual AC energy agrees within 0.07% across all three module types, both fixed array types, 4 kW to 1 MW systems, and orientations from flat to vertical and north- to west-facing, before any scaling. On a brute-force 1° PySAM search it picks the same optimum. `tests/test_orientation_model.mjs` pins this against [`tests/fixtures/orientation/greensboro_tmy3.json`](tests/fixtures/orientation/), which [`tools/make_orientation_fixture.py`](tools/make_orientation_fixture.py) regenerates.
 
 Tracking arrays and bifacial modules are not modeled locally; for those systems the search is disabled and the official 77-orientation grid remains available.
+
+## Seasonal tilt schedules
+
+Solar declination swings between +23.45° in June and −23.45° in December, so the tilt that points an equator-facing array at the noon sun, |latitude − declination|, moves by about 47° over a year. An adjustable rack can follow part of that swing.
+
+After the orientation search, the page reruns the calibrated local model month by month for every tilt from 0° to 90° at the optimal azimuth (91 simulations, no requests) and finds the best schedule with 1, 2, 4, and 12 tilt settings a year. Each setting covers a run of whole months, wrapping over the new year, and every split of the year is checked. Row spacing stays at the input ground coverage ratio, so steeper winter tilts carry their extra row-to-row shading. The chart plots the chosen schedule against the best tilt each month and the noon-sun tilt; the data table also lists each month's mean declination.
+
+The schedule energies are calibrated local estimates. **Confirm with PVWatts** sends one official request per tilt the schedule needs (plus the fixed tilt, if it has not been run) and sums the official monthly energies, which is exact because PVWatts carries no state between months. The button states the request count first.
+
+On the Greensboro, NC TMY3 file, re-tilting twice a year (11° April–August, 44° September–March) gains about 3.6% over the best fixed tilt, four settings about 4.2%, and monthly adjustment about 4.5%. `tests/test_orientation_model.mjs` checks the local monthly energies against PySAM (within 0.5% for every month) and scores each chosen schedule with PySAM's monthly results against a brute-force PySAM search (within 0.05%).
+
+## Magnetic compass bearings
+
+PVWatts azimuths are true bearings: 180° is true south. A compass points to magnetic north, which differs by the local magnetic declination. [`static/magnetic_declination.js`](static/magnetic_declination.js) evaluates the World Magnetic Model (WMM2025, NOAA NCEI and the British Geological Survey, public domain) in the browser for the selected location and today's date, and the app shows the compass reading under the simulator's azimuth dial, beside the optimal orientation, and in the JSON export. With 8.7° W declination, for example, true south reads 188.7° on a compass. `tests/test_magnetic_declination.mjs` checks the model against all 100 official WMM2025 test values. WMM2025 is valid through 2029; later dates are flagged as approximate.
 
 ## Datasheet reader
 
@@ -169,7 +185,7 @@ The key remains visible in browser developer tools and is transmitted to NLR as 
 Run the complete test suite:
 
 ```bash
-node --test tests/test_pvwatts_client.mjs tests/test_orientation_model.mjs tests/test_datasheet_parser.mjs tests/test_news_fetcher.mjs
+node --test tests/test_pvwatts_client.mjs tests/test_orientation_model.mjs tests/test_magnetic_declination.mjs tests/test_datasheet_parser.mjs tests/test_news_fetcher.mjs
 python3 -m unittest tests.test_static_ui -v
 ```
 

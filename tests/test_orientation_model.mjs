@@ -140,3 +140,85 @@ test('sun position agrees with the solar noon and sunrise on the equinox', () =>
   const { sunrise, sunset } = OrientationModel.sunriseSunset(2001, 3, 20, 0, 0, 0);
   assert.ok(Math.abs(sunrise - 6.0) < 0.15 && Math.abs(sunset - 18.2) < 0.15, `${sunrise}, ${sunset}`);
 });
+
+test('monthly energy by tilt matches PVWatts v8', () => {
+  const { seasonal } = fixture;
+  const sys = OrientationModel.prepareSystem(systemParams(fixture.systems[seasonal.system].system));
+  for (const tilt of [0, 10, 28, 45, 60, 90]) {
+    const local = OrientationModel.simulate(prepared, sys, tilt, seasonal.azimuth, { monthly: true });
+    const official = seasonal.monthly_ac[tilt];
+    local.monthlyAcKwh.forEach((value, month) => {
+      const difference = Math.abs(value / official[month] - 1) * 100;
+      assert.ok(difference < 0.5, `tilt ${tilt}, month ${month + 1}: ${value.toFixed(2)} vs ${official[month]} kWh (${difference.toFixed(3)}%)`);
+    });
+    const total = local.monthlyAcKwh.reduce((sum, value) => sum + value, 0);
+    assert.ok(Math.abs(total / local.acKwh - 1) < 1e-9, 'monthly totals add up to the annual total');
+  }
+});
+
+test('seasonal tilt schedules match a brute-force PVWatts search', async () => {
+  const { seasonal } = fixture;
+  const model = { prepared, system: OrientationModel.prepareSystem(systemParams(fixture.systems[seasonal.system].system)), scale: 1 };
+  let lastProgress = 0;
+  const result = await OrientationModel.tiltSchedules(model, seasonal.azimuth, {
+    onProgress: (done, total) => { lastProgress = done / total; }
+  });
+  assert.equal(lastProgress, 1);
+  assert.deepEqual(result.schedules.map(schedule => schedule.settings), [1, 2, 4, 12]);
+
+  // Score each local schedule with the official monthly energies: the split
+  // it picks may differ on a flat plateau, but the energy must not.
+  const officialEnergy = blocks => blocks.reduce((total, block) => {
+    for (let i = 0; i < block.months; i += 1) {
+      total += seasonal.monthly_ac[block.tilt][(block.startMonth - 1 + i) % 12];
+    }
+    return total;
+  }, 0);
+  result.schedules.forEach((schedule, index) => {
+    const reference = seasonal.schedules[index];
+    assert.equal(schedule.settings, reference.settings);
+    assert.ok(schedule.blocks.length <= schedule.settings);
+    assert.equal(schedule.blocks.reduce((months, block) => months + block.months, 0), 12);
+    const ratio = officialEnergy(schedule.blocks) / reference.ac_annual;
+    assert.ok(ratio > 0.9995, `${schedule.settings} settings: ${(ratio * 100).toFixed(3)}% of the PVWatts optimum`);
+  });
+
+  // Fixed is the annual optimum at this azimuth; monthly is each month's best tilt.
+  assert.equal(result.schedules[0].blocks[0].tilt, seasonal.schedules[0].blocks[0].tilt);
+  result.monthlyBest.forEach((month, index) => {
+    assert.ok(Math.abs(month.tilt - seasonal.schedules[3].blocks[index].tilt) <= 1, `month ${index + 1}: ${month.tilt}°`);
+  });
+  const gains = result.schedules.map(schedule => schedule.annualKwh);
+  assert.ok(gains[0] < gains[1] && gains[1] < gains[2] && gains[2] < gains[3], 'more settings never lose energy');
+});
+
+test('the noon-sun reference follows the solar declination', async () => {
+  // Cooper's textbook equation, 23.45 sin(360 (284 + n) / 365), is within about a degree.
+  for (const [month, day, n] of [[1, 17, 17], [3, 20, 79], [6, 21, 172], [9, 22, 265], [12, 21, 355]]) {
+    const cooper = 23.45 * Math.sin(2 * Math.PI * (284 + n) / 365);
+    assert.ok(Math.abs(OrientationModel.solarDeclination(month, day) - cooper) < 1.1, `${month}/${day}`);
+  }
+  const model = { prepared, system: OrientationModel.prepareSystem(systemParams(fixture.systems.standard_rack_4kw.system)), scale: 1 };
+  const south = await OrientationModel.tiltSchedules(model, 180, { settings: [1] });
+  south.noonSunTilt.forEach((tilt, month) => {
+    assert.ok(Math.abs(tilt - (prepared.lat - south.declination[month])) < 1e-9);
+  });
+  assert.ok(south.declination[5] > 23 && south.declination[11] < -23, 'June and December near the solstice values');
+  const east = await OrientationModel.tiltSchedules(model, 90, { settings: [1] });
+  assert.equal(east.noonSunTilt, null, 'no noon-sun reference for an array that does not face the equator');
+});
+
+test('schedule blocks that share a tilt merge across the new year', () => {
+  // Winter tilt in Nov-Feb, summer tilt in Mar-Oct; four settings should collapse to two.
+  const tilts = [10, 50];
+  const monthlyKwh = new Float64Array(24);
+  for (let m = 0; m < 12; m += 1) {
+    const winter = m <= 1 || m >= 10;
+    monthlyKwh[m] = winter ? 1 : 2;
+    monthlyKwh[12 + m] = winter ? 2 : 1;
+  }
+  const schedule = OrientationModel.bestSchedule(tilts, monthlyKwh, 4);
+  assert.equal(schedule.annualKwh, 24);
+  assert.deepEqual(schedule.blocks.map(({ startMonth, months, tilt }) => [startMonth, months, tilt]).sort((a, b) => a[0] - b[0]),
+    [[3, 8, 10], [11, 4, 50]]);
+});

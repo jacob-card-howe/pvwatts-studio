@@ -30,7 +30,7 @@ jobs:
           node-version: '22'
 
       - name: Test the PVWatts browser client, the orientation model, the datasheet reader, and the news aggregator
-        run: node --test tests/test_pvwatts_client.mjs tests/test_orientation_model.mjs tests/test_datasheet_parser.mjs tests/test_news_fetcher.mjs
+        run: node --test tests/test_pvwatts_client.mjs tests/test_orientation_model.mjs tests/test_magnetic_declination.mjs tests/test_datasheet_parser.mjs tests/test_news_fetcher.mjs
 
       - uses: actions/setup-python@v7
         with:

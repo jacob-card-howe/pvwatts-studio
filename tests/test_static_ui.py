@@ -280,6 +280,41 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("OrientationModel.localModelSupport(params)", self.javascript)
         self.assertIn("this.buildQuery(inputs, apiKey, 'hourly')", self.client)
 
+    def test_seasonal_schedules_reuse_the_search_and_confirm_on_request(self):
+        canvas_tag, canvas = self.parser.elements_by_id["chart-seasonal"]
+        confirm_tag, _ = self.parser.elements_by_id["btn-confirm-schedule"]
+        cancel_tag, cancel = self.parser.elements_by_id["btn-cancel-schedule"]
+        _, results = self.parser.elements_by_id["seasonal-results"]
+        self.assertEqual(canvas_tag, "canvas")
+        self.assertEqual(canvas["aria-describedby"], "seasonal-data-caption")
+        self.assertIn('id="seasonal-data-caption"', self.html)
+        self.assertIn('id="chart-seasonal-fallback"', self.html)
+        self.assertEqual(confirm_tag, "button")
+        self.assertEqual(cancel_tag, "button")
+        self.assertIn("hidden", cancel)
+        self.assertIn("hidden", results)
+
+        # Schedules come from the search's calibrated model, with no requests;
+        # the official check sends one request per missing tilt and says so first.
+        self.assertIn("OrientationModel.tiltSchedules(model, best.azimuth", self.javascript)
+        self.assertIn("pvwattsClient.simulate({ ...result.params, tilt, azimuth }, { apiKey, signal })", self.javascript)
+        self.assertIn("Confirm with PVWatts · ${missing.length}", self.javascript)
+        self.assertIn("scheduleController?.abort()", self.javascript)
+        self.assertIn(">No extra requests<", self.html)
+        self.assertIn(">2 API requests<", self.html)
+
+    def test_compass_bearings_use_the_in_browser_magnetic_model(self):
+        model = self.html.index('src="magnetic_declination.js"')
+        self.assertLess(self.html.index('src="orientation_model.js"'), model)
+        self.assertLess(model, self.html.index('src="app.js"'))
+        self.assertIn('id="compass-magnetic-label"', self.html)
+        self.assertIn('id="optimizer-compass"', self.html)
+        self.assertIn("MagneticDeclination.magneticBearing(", self.javascript)
+        self.assertIn("compass: compassExport(params)", self.javascript)
+        self.assertIn("World Magnetic Model (WMM2025)", self.html)
+        magnetic = (ROOT / "static" / "magnetic_declination.js").read_text(encoding="utf-8")
+        self.assertNotIn("fetch(", magnetic)
+
     def test_sweep_inherits_current_size_and_losses_without_hidden_overrides(self):
         self.assertIn("systemCapacityKw: currentParams.systemCapacityKw", self.javascript)
         self.assertIn("losses: currentParams.losses", self.javascript)
