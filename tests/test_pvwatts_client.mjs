@@ -311,3 +311,46 @@ test('geocoder entries with unusable coordinates are skipped', async () => {
   const results = await searchLocations('somewhere', { fetchImpl });
   assert.deepEqual(results.map(result => result.name), ['Good']);
 });
+
+function hourlyOutputs() {
+  const series = value => new Array(8760).fill(value);
+  return {
+    ...OUTPUTS,
+    dn: series(500),
+    df: series(100),
+    tamb: series(20),
+    wspd: series(2),
+    alb: series(0.2),
+    poa: series(450),
+    dc: series(3000),
+    ac: series(2900)
+  };
+}
+
+test('hourly requests ask for timeframe=hourly and return the weather series', async () => {
+  const { calls, fetchImpl } = stubFetch({ outputs: hourlyOutputs(), station_info: { lat: 47.5, lon: -122.2, tz: -8, elev: 10 } });
+  const client = new PVWattsClient({ fetchImpl });
+  const result = await client.simulateHourly(BASE_PARAMS, { apiKey: 'test-key' });
+
+  assert.equal(new URL(calls[0]).searchParams.get('timeframe'), 'hourly');
+  assert.equal(result.annualAcKwh, OUTPUTS.ac_annual);
+  assert.equal(result.hourly.dn.length, 8760);
+  assert.equal(result.hourly.poa[0], 450);
+  assert.equal(result.stationInfo.tz, -8);
+
+  // Hourly responses are cached separately from monthly results.
+  await client.simulateHourly(BASE_PARAMS, { apiKey: 'test-key' });
+  assert.equal(calls.length, 1);
+  await client.simulate(BASE_PARAMS, { apiKey: 'test-key' });
+  assert.equal(calls.length, 2);
+  assert.equal(new URL(calls[1]).searchParams.get('timeframe'), 'monthly');
+});
+
+test('an hourly response without weather series is rejected', async () => {
+  const { dn, ...outputs } = hourlyOutputs();
+  const { fetchImpl } = stubFetch({ outputs });
+  const client = new PVWattsClient({ fetchImpl });
+  const error = await rejection(client.simulateHourly(BASE_PARAMS));
+  assert.equal(error.code, 'invalid_pvwatts_response');
+  assert.match(error.message, /no hourly dn/);
+});
