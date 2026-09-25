@@ -63,13 +63,12 @@ function newsTopicKey(category) {
   return String(category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
-function createNewsChip(label, value, pressed, onSelect, topic) {
+function createNewsChip(label, value, pressed, onSelect) {
   const chip = document.createElement('button');
   chip.type = 'button';
   chip.className = 'news-chip';
   chip.textContent = label;
   chip.dataset.value = value;
-  if (topic) chip.dataset.topic = topic;
   chip.setAttribute('aria-pressed', String(pressed));
   chip.addEventListener('click', () => onSelect(value));
   return chip;
@@ -78,7 +77,7 @@ function createNewsChip(label, value, pressed, onSelect, topic) {
 function renderNewsFilters() {
   const { data } = newsState;
   const rows = [
-    ['news-filter-category', 'All topics', data.categories.map(name => ({ label: name, value: name, topic: newsTopicKey(name) })), 'category'],
+    ['news-filter-category', 'All topics', data.categories.map(name => ({ label: name, value: name })), 'category'],
     ['news-filter-source', 'All sources', data.sources.map(source => ({ label: source.name, value: source.id })), 'source'],
   ];
 
@@ -93,7 +92,7 @@ function renderNewsFilters() {
         newsState[key] = select;
         renderNewsFilters();
         renderNewsList();
-      }, entry.topic));
+      }));
     }
     newsElement(containerId).replaceChildren(...chips);
     // The rows sit behind collapsed disclosures, so the summary names the
@@ -106,7 +105,7 @@ function renderNewsFilters() {
 function createNewsItem(item) {
   const row = document.createElement('li');
   row.className = 'news-item';
-  // The topic's accent (styles.css) marks the row so a long list scans by topic.
+  // The topic's accent (styles.css) tints the topic label so a long list scans by topic.
   row.dataset.topic = newsTopicKey(item.category);
 
   const when = document.createElement('time');

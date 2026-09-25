@@ -2665,10 +2665,10 @@ body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
   padding: 0;
 }
 
-/* Topic accents: each news topic borrows one UML accent so a long headline
-   list scans by topic. Unknown topics fall back to Hardware Gray. */
-.news-item,
-.news-chip {
+/* Topic accents: each news topic borrows one UML accent for the topic label
+   beside the source, so a long headline list scans by topic. Unknown topics
+   fall back to Hardware Gray. */
+.news-item {
   --topic-color: var(--text-muted);
 }
 
@@ -2676,18 +2676,6 @@ body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
 [data-topic="research"] { --topic-color: var(--uml-yellow); }
 [data-topic="policy"] { --topic-color: var(--uml-aqua); }
 [data-topic="video"] { --topic-color: var(--uml-orange); }
-
-.news-chip[data-topic]::before,
-.news-item-when::before {
-  content: "";
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  margin-right: 0.45rem;
-  border-radius: 50%;
-  background: var(--topic-color);
-  vertical-align: 0.05em;
-}
 
 .news-item {
   display: grid;

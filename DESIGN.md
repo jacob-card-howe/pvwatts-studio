@@ -270,7 +270,7 @@ Cyan-tinted one-pixel borders describe control boundaries and panel structure. A
 
 ### Headlines (Solar News)
 - **Style:** a dense reading list rather than a card grid. Each row places a monospaced relative timestamp in a fixed left column beside a sans-serif headline, one muted summary line, and the publisher and topic as small metadata. Quiet Structural Cyan hairlines separate rows; there are no per-row borders, shadows, or glows.
-- **Topic accents:** each topic borrows one accent so a long list scans by topic: Industry in Valid Green, Research in Solar Yellow, Policy in Aqua, and Video in Orange. The accent appears only as a small dot before the timestamp and on the matching topic chip, plus the tinted topic label; the label always names the topic, so color is never the only cue. An unknown topic falls back to Hardware Gray.
+- **Topic accents:** each topic borrows one accent so a long list scans by topic: Industry in Valid Green, Research in Solar Yellow, Policy in Aqua, and Video in Orange. The accent appears only as the color of the small uppercase topic label beside the publisher; the label names the topic, so color is never the only cue. An unknown topic falls back to Hardware Gray.
 - **Filters:** topic and publisher chips reuse the navigation-active treatment (Instrument Blue when pressed) at `6px` radius, and the search field reuses the recessed input well. The masthead is the only card in the view, so hierarchy comes from typography and spacing rather than layered surfaces.
 - **Behavior:** headline links leave the site, so they carry the primary text color at rest and Signal Cyan on hover or focus. The rebuild timestamp stays visible above the list, and an unavailable publisher is named rather than silently missing.
 

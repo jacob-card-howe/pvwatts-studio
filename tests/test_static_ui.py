@@ -461,10 +461,9 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("newsState.query", self.news)
 
     def test_every_news_topic_has_an_accent_color(self):
-        # Rows and topic chips carry a data-topic key that picks one UML accent,
+        # Each row carries a data-topic key that picks one UML accent,
         # so each published category needs a matching rule in the stylesheet.
         self.assertIn("row.dataset.topic = newsTopicKey(item.category)", self.news)
-        self.assertIn("chip.dataset.topic = topic", self.news)
         payload = json.loads((ROOT / "static" / "news.json").read_text(encoding="utf-8"))
         for category in payload["categories"]:
             key = re.sub(r"[^a-z0-9]+", "-", category.lower())
