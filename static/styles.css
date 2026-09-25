@@ -1496,6 +1496,180 @@ button svg,
   margin-top: 0.55rem;
 }
 
+.sweep-setup-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Optimal orientation search */
+.optimizer-steps {
+  display: grid;
+  gap: 0.4rem;
+  padding-left: 1.2rem;
+  color: var(--text-secondary);
+  font-size: 0.825rem;
+  line-height: 1.5;
+}
+
+.optimizer-steps strong {
+  color: var(--text-primary);
+}
+
+.sweep-run-panel #optimizer-help {
+  margin-top: 0.55rem;
+}
+
+.field-help.is-warning {
+  color: var(--uml-light-blue);
+}
+
+.optimizer-results {
+  margin-bottom: 1.25rem;
+}
+
+.optimizer-kpis {
+  margin-bottom: 1rem;
+}
+
+.optimizer-kpis .kpi-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.optimizer-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.optimizer-plateau {
+  max-width: 72ch;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.optimizer-stale {
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgba(0, 181, 241, 0.08);
+  color: var(--uml-light-blue);
+  font-size: 0.825rem;
+}
+
+.optimizer-chart-container {
+  height: auto;
+  min-height: 380px;
+}
+
+.optimizer-chart-container > .chart-empty {
+  min-height: 380px;
+}
+
+.orientation-figure {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.orientation-figure-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.orientation-figure-title {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.orientation-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+}
+
+.orientation-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.orientation-legend-swatch {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(247, 251, 255, 0.12);
+}
+
+.orientation-plot {
+  position: relative;
+  height: 340px;
+}
+
+.orientation-plot canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.orientation-tooltip {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  gap: 0.15rem;
+  max-width: 220px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(90, 219, 255, 0.34);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+.orientation-tooltip strong {
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
+.optimizer-method-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin: 0.5rem 0 0.85rem;
+}
+
+.optimizer-method-list dt {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.optimizer-method-list dd {
+  margin: 0.15rem 0 0;
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.optimizer-method .field-help {
+  max-width: 80ch;
+  padding-bottom: 0.5rem;
+}
+
 .sweep-data-panel {
   margin-top: 1rem;
   border-top: 1px solid var(--border-subtle);
@@ -1720,6 +1894,14 @@ button svg,
     min-height: 360px;
   }
 
+  .optimizer-chart-container {
+    height: auto;
+  }
+
+  .orientation-plot {
+    height: 280px;
+  }
+
   .data-table {
     min-width: 760px;
   }
@@ -1778,7 +1960,8 @@ button svg,
     gap: 0.5rem;
   }
 
-  .sweep-actions .btn {
+  .sweep-actions .btn,
+  .optimizer-summary-row .btn {
     width: 100%;
   }
 }

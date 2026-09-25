@@ -260,25 +260,76 @@ async function requestJson(url, { service, signal, fetchImpl = fetch }) {
   return payload;
 }
 
+const HOURS_PER_YEAR = 8760;
+const HOURLY_WEATHER_FIELDS = ['dn', 'df', 'tamb', 'wspd'];
+
+/**
+ * Map an hourly (timeframe=hourly) response to the weather and official
+ * hourly results the in-browser orientation model needs.
+ */
+function normalizeHourlyResponse(payload, inputs) {
+  const summary = normalizeHourlySummary(payload, inputs);
+  const outputs = payload.outputs || {};
+  const series = name => {
+    const values = outputs[name];
+    if (!Array.isArray(values) || values.length !== HOURS_PER_YEAR) return null;
+    return values.map(Number);
+  };
+  const missing = HOURLY_WEATHER_FIELDS.filter(name => !series(name));
+  if (missing.length) {
+    throw serviceError(
+      `PVWatts returned no hourly ${missing.join(', ')} data`,
+      { code: 'invalid_pvwatts_response' }
+    );
+  }
+  return {
+    ...summary,
+    hourly: {
+      dn: series('dn'),
+      df: series('df'),
+      tamb: series('tamb'),
+      wspd: series('wspd'),
+      alb: series('alb'),
+      poa: series('poa'),
+      dc: series('dc'),
+      ac: series('ac')
+    }
+  };
+}
+
+// Hourly responses carry the same annual summary; tolerate a missing monthly
+// block by summing the hourly AC series instead.
+function normalizeHourlySummary(payload, inputs) {
+  try {
+    return normalizePvwattsResponse(payload, inputs);
+  } catch (error) {
+    if (error.code !== 'invalid_pvwatts_response') throw error;
+    const ac = payload.outputs?.ac;
+    if (!Array.isArray(ac) || ac.length !== HOURS_PER_YEAR) throw error;
+    const annualAc = ac.reduce((total, value) => total + Number(value), 0) / 1000;
+    return {
+      annualAcKwh: annualAc,
+      kwhPerKw: annualAc / Number(inputs.system_capacity),
+      stationInfo: payload.station_info || {},
+      dataset: inputs.dataset || DEFAULT_DATASET,
+      version: payload.version || '8',
+      model: 'Official PVWatts v8 (SSC pvwattsv8)'
+    };
+  }
+}
+
 /** Small client for the canonical PVWatts v8 API, with an LRU result cache. */
 class PVWattsClient {
-  constructor({ apiUrl = PVWATTS_API_URL, cacheSize = 512, fetchImpl } = {}) {
+  constructor({ apiUrl = PVWATTS_API_URL, cacheSize = 512, hourlyCacheSize = 4, fetchImpl } = {}) {
     this.apiUrl = apiUrl;
     this.cacheSize = cacheSize;
+    this.hourlyCacheSize = hourlyCacheSize;
     this.fetchImpl = fetchImpl;
     this.cache = new Map();
+    this.hourlyCache = new Map();
   }
 
-  async simulate(params, { apiKey, signal } = {}) {
-    const inputs = validateSimulationParams(params);
-    const cacheKey = JSON.stringify(inputs);
-    if (this.cache.has(cacheKey)) {
-      const cached = this.cache.get(cacheKey);
-      this.cache.delete(cacheKey);
-      this.cache.set(cacheKey, cached);
-      return cached;
-    }
-
+  buildQuery(inputs, apiKey, timeframe) {
     const query = new URLSearchParams({
       api_key: (apiKey || '').trim() || DEMO_KEY,
       system_capacity: inputs.system_capacity,
@@ -298,22 +349,53 @@ class PVWattsClient {
       lon: inputs.lon,
       dataset: inputs.dataset,
       radius: 0,
-      timeframe: 'monthly'
+      timeframe
     });
     if (inputs.albedo !== null) query.set('albedo', String(inputs.albedo));
+    return query;
+  }
 
-    const payload = await requestJson(`${this.apiUrl}?${query}`, {
-      service: 'PVWatts',
-      signal,
-      fetchImpl: this.fetchImpl
-    });
-    const result = normalizePvwattsResponse(payload, inputs);
-
-    this.cache.set(cacheKey, result);
-    while (this.cache.size > this.cacheSize) {
-      this.cache.delete(this.cache.keys().next().value);
+  async cachedRequest(cache, cacheSize, cacheKey, request) {
+    if (cache.has(cacheKey)) {
+      const cached = cache.get(cacheKey);
+      cache.delete(cacheKey);
+      cache.set(cacheKey, cached);
+      return cached;
+    }
+    const result = await request();
+    cache.set(cacheKey, result);
+    while (cache.size > cacheSize) {
+      cache.delete(cache.keys().next().value);
     }
     return result;
+  }
+
+  async simulate(params, { apiKey, signal } = {}) {
+    const inputs = validateSimulationParams(params);
+    return this.cachedRequest(this.cache, this.cacheSize, JSON.stringify(inputs), async () => {
+      const payload = await requestJson(`${this.apiUrl}?${this.buildQuery(inputs, apiKey, 'monthly')}`, {
+        service: 'PVWatts',
+        signal,
+        fetchImpl: this.fetchImpl
+      });
+      return normalizePvwattsResponse(payload, inputs);
+    });
+  }
+
+  /**
+   * One official simulation with hourly output. The response carries a full
+   * year of the weather PVWatts used, which the orientation model reuses.
+   */
+  async simulateHourly(params, { apiKey, signal } = {}) {
+    const inputs = validateSimulationParams(params);
+    return this.cachedRequest(this.hourlyCache, this.hourlyCacheSize, JSON.stringify(inputs), async () => {
+      const payload = await requestJson(`${this.apiUrl}?${this.buildQuery(inputs, apiKey, 'hourly')}`, {
+        service: 'PVWatts',
+        signal,
+        fetchImpl: this.fetchImpl
+      });
+      return normalizeHourlyResponse(payload, inputs);
+    });
   }
 }
 
@@ -396,6 +478,7 @@ const PVWatts = {
   searchLocations,
   validateSimulationParams,
   normalizePvwattsResponse,
+  normalizeHourlyResponse,
   PVWATTS_API_URL,
   DATASETS,
   DEFAULT_DATASET

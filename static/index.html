@@ -459,20 +459,23 @@
          TAB 2: PARAMETRIC STUDIO (Multi-Dimensional Sweeps & Heatmaps)
          ==================================================================== -->
     <div id="parametric-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-parametric" tabindex="0" hidden>
-      <section class="card parametric-card panel-rail" aria-labelledby="sweep-heading">
+      <section class="card parametric-card panel-rail" aria-labelledby="optimizer-heading">
         <div class="parametric-intro">
           <div>
-            <h2 id="sweep-heading" class="card-title">
+            <h2 id="optimizer-heading" class="card-title">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                <polyline points="2 17 12 22 22 17"></polyline>
-                <polyline points="2 12 12 17 22 12"></polyline>
+                <circle cx="12" cy="12" r="9"></circle>
+                <circle cx="12" cy="12" r="4"></circle>
+                <line x1="12" y1="1" x2="12" y2="5"></line>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="1" y1="12" x2="5" y2="12"></line>
+                <line x1="19" y1="12" x2="23" y2="12"></line>
               </svg>
-              Tilt &amp; azimuth comparison
+              Optimal orientation
             </h2>
-            <p class="section-intro">Compare annual AC energy across 77 orientations while holding your current system assumptions constant.</p>
+            <p class="section-intro">Find the tilt and azimuth that deliver the most annual AC energy for your current system. PVWatts supplies one year of hourly weather, your browser searches every orientation with the same fixed-array model, and PVWatts confirms the winner.</p>
           </div>
-          <span class="request-count">77 API requests</span>
+          <span class="request-count">2 API requests</span>
         </div>
 
         <div class="sweep-setup-grid">
@@ -483,10 +486,116 @@
               <div><dt>System size</dt><dd id="sweep-assumption-size">4 kW DC</dd></div>
               <div><dt>System losses</dt><dd id="sweep-assumption-losses">14.08%</dd></div>
               <div><dt>Module / array</dt><dd id="sweep-assumption-hardware">Standard · Fixed (open rack)</dd></div>
+              <div><dt>Current orientation</dt><dd id="sweep-assumption-orientation">20° tilt · 180° azimuth</dd></div>
             </dl>
             <p id="sweep-assumption-details">Advanced model settings are inherited from the current simulator inputs. Only tilt and azimuth vary.</p>
           </section>
 
+          <section class="sweep-run-panel" aria-labelledby="optimizer-run-heading">
+            <h3 id="optimizer-run-heading">How the search works</h3>
+            <ol class="optimizer-steps">
+              <li><strong>1 request</strong> fetches hourly weather and the official result at your current orientation.</li>
+              <li>Your browser checks its model against that result, then evaluates about 1,500 orientations without contacting PVWatts.</li>
+              <li><strong>1 request</strong> confirms the best orientation with official PVWatts.</li>
+            </ol>
+            <div class="sweep-actions">
+              <button id="btn-run-optimizer" class="btn btn-primary" type="button" aria-describedby="optimizer-help">Find optimal orientation</button>
+              <button id="btn-cancel-optimizer" class="btn btn-outline" type="button" hidden>Cancel search</button>
+            </div>
+            <p id="optimizer-help" class="field-help">Works for fixed open-rack and fixed roof-mount arrays with monofacial modules.</p>
+          </section>
+        </div>
+
+        <div id="optimizer-results" class="optimizer-results" hidden>
+          <div class="kpi-row optimizer-kpis">
+            <div class="kpi-card">
+              <div class="kpi-label">Optimal orientation</div>
+              <div class="kpi-value"><span id="optimizer-kpi-orientation">—</span></div>
+              <div id="optimizer-kpi-orientation-note" class="kpi-subtext">Tilt / azimuth, searched to 1°.</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Annual AC at optimum</div>
+              <div class="kpi-value"><span id="optimizer-kpi-energy">—</span><span class="kpi-unit">kWh</span></div>
+              <div id="optimizer-kpi-energy-note" class="kpi-subtext">Confirmed by official PVWatts v8.</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Gain over current</div>
+              <div class="kpi-value"><span id="optimizer-kpi-gain">—</span><span class="kpi-unit">kWh</span></div>
+              <div id="optimizer-kpi-gain-note" class="kpi-subtext">Compared with your current orientation.</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Model check</div>
+              <div class="kpi-value"><span id="optimizer-kpi-check">—</span><span class="kpi-unit">%</span></div>
+              <div id="optimizer-kpi-check-note" class="kpi-subtext">Local model versus official PVWatts at your orientation.</div>
+            </div>
+          </div>
+          <div class="optimizer-summary-row">
+            <p id="optimizer-plateau" class="optimizer-plateau"></p>
+            <button id="btn-apply-optimum" class="btn btn-outline" type="button">Use this orientation in the simulator</button>
+          </div>
+          <p id="optimizer-stale" class="optimizer-stale" role="status" hidden>Your system inputs changed after this search. Run it again to update the result.</p>
+        </div>
+
+        <div id="optimizer-chart-container" class="chart-container optimizer-chart-container" aria-busy="false">
+          <p id="optimizer-empty" class="chart-empty">Run the search to map annual energy across every tilt and azimuth.</p>
+          <figure id="optimizer-figure" class="orientation-figure" hidden>
+            <figcaption class="orientation-figure-head">
+              <span class="orientation-figure-title">Estimated annual AC energy, as a share of the optimum</span>
+              <span id="optimizer-legend" class="orientation-legend"></span>
+            </figcaption>
+            <div id="orientation-plot" class="orientation-plot">
+              <canvas id="chart-orientation" role="img" aria-label="Heatmap of estimated annual AC energy by tilt and azimuth" aria-describedby="optimizer-data-caption">A table of the same values follows the chart.</canvas>
+              <div id="orientation-tooltip" class="orientation-tooltip" role="presentation" hidden></div>
+            </div>
+          </figure>
+          <div id="optimizer-loading" class="sweep-loading" role="status" aria-live="polite" aria-atomic="true" hidden>
+            <div class="sweep-spinner" aria-hidden="true"><span></span></div>
+            <div class="sweep-loading-copy">
+              <strong id="optimizer-status">Preparing the search…</strong>
+              <span id="optimizer-status-detail">Requesting hourly weather from PVWatts.</span>
+            </div>
+            <div class="sweep-progress-row">
+              <progress id="optimizer-progress" max="100" value="0">0%</progress>
+              <span id="optimizer-progress-label">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <details id="optimizer-data-panel" class="sweep-data-panel" hidden>
+          <summary>View accessible orientation data</summary>
+          <div class="data-table-wrapper">
+            <table class="data-table sweep-data-table">
+              <caption id="optimizer-data-caption">Estimated annual AC energy in kilowatt-hours from the calibrated local model, every 10° of tilt and 30° of azimuth.</caption>
+              <thead id="optimizer-table-head"></thead>
+              <tbody id="optimizer-table-body"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <details id="optimizer-method-panel" class="sweep-data-panel optimizer-method" hidden>
+          <summary>Model check and method</summary>
+          <dl id="optimizer-method-list" class="optimizer-method-list"></dl>
+          <p class="field-help">The local model reimplements the fixed-array path of PVWatts v8 from the open-source SAM Simulation Core: sun position, the Perez sky model, row-to-row self-shading, soiling, cover and spectral losses, cell temperature, the single-diode module model, DC losses, and the inverter. One factor scales every local value so it matches the official result at your current orientation. The optimum itself always comes from an official PVWatts request.</p>
+        </details>
+      </section>
+
+      <section class="card parametric-card" aria-labelledby="sweep-heading">
+        <div class="parametric-intro">
+          <div>
+            <h2 id="sweep-heading" class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+              Official grid comparison
+            </h2>
+            <p class="section-intro">Run 77 tilt and azimuth combinations entirely through official PVWatts, holding the same baseline constant. Use it to check the local search or to compare the classic grid.</p>
+          </div>
+          <span class="request-count">77 API requests</span>
+        </div>
+
+        <div class="sweep-setup-grid sweep-setup-single">
           <section class="sweep-run-panel" aria-labelledby="sweep-run-heading">
             <h3 id="sweep-run-heading">Quota checkpoint</h3>
             <p>A personal NLR key is recommended. The sweep runs in 7-request batches so cancellation prevents unsent batches from consuming quota.</p>
@@ -503,7 +612,7 @@
         </div>
 
         <div id="sweep-chart-container" class="chart-container sweep-chart-container" aria-busy="false">
-          <p id="sweep-empty" class="chart-empty">Run the comparison to reveal the best-performing orientations for this system.</p>
+          <p id="sweep-empty" class="chart-empty">Run the comparison to see official results for all 77 orientations.</p>
           <canvas id="chart-sweep" role="img" aria-label="Line chart comparing annual AC energy by tilt and azimuth" aria-describedby="sweep-data-caption" hidden>All comparison values are available in the accessible data table below.</canvas>
           <div id="sweep-loading" class="sweep-loading" role="status" aria-live="polite" aria-atomic="true" hidden>
             <div class="sweep-spinner" aria-hidden="true"><span></span></div>
@@ -778,7 +887,8 @@
       <strong>Independent educational project.</strong> PVWatts Studio was developed as part of
       graduate coursework and is not affiliated with, sponsored by, endorsed by, or an official
       product of NLR (formerly NREL), the U.S. Department of Energy, or the PVWatts program. This
-      web app only consumes the public PVWatts API.
+      web app's estimates come from the public PVWatts API; its orientation search adds an independent
+      in-browser model adapted from the open-source SAM Simulation Core and confirms the result with the API.
       PVWatts® and related marks belong to their respective owners.
     </p>
     <div class="footer-links">
@@ -799,6 +909,7 @@
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true" aria-relevant="additions"></div>
 
   <script src="pvwatts_client.js"></script>
+  <script src="orientation_model.js"></script>
   <script src="datasheet_parser.js"></script>
   <script src="app.js"></script>
   <script src="datasheet.js"></script>

@@ -16,6 +16,10 @@ let simulationController = null;
 let simulationSequence = 0;
 let sweepController = null;
 let sweepInProgress = false;
+let optimizerController = null;
+let optimizerInProgress = false;
+let optimizerResult = null;
+let optimizerMessage = '';
 
 const pvwattsClient = new PVWatts.PVWattsClient();
 
@@ -347,6 +351,9 @@ function updateSweepAssumptions() {
   document.getElementById('sweep-assumption-hardware').textContent = `${moduleSelect.selectedOptions[0].text} · ${arraySelect.selectedOptions[0].text}`;
   document.getElementById('sweep-assumption-details').textContent =
     `DC/AC ${formatDecimal(params.dcAcRatio)} · inverter ${formatDecimal(params.invEff)}% · GCR ${formatDecimal(params.groundCoverageRatio)} · ${datasetLabel(params.dataset)} weather. Only tilt and azimuth vary.`;
+  document.getElementById('sweep-assumption-orientation').textContent =
+    `${formatDecimal(params.tilt)}° tilt · ${formatDecimal(params.azimuth)}° azimuth`;
+  updateOptimizerAvailability(params);
 }
 
 // Controls & Sliders Wiring
@@ -472,6 +479,11 @@ function initControls() {
   });
   sweepButton.addEventListener('click', runParametricSweep);
   document.getElementById('btn-cancel-sweep').addEventListener('click', cancelParametricSweep);
+
+  document.getElementById('btn-run-optimizer').addEventListener('click', runOrientationOptimizer);
+  document.getElementById('btn-cancel-optimizer').addEventListener('click', cancelOrientationOptimizer);
+  document.getElementById('btn-apply-optimum').addEventListener('click', applyOptimalOrientation);
+  initOrientationHeatmap();
 
   document.getElementById('btn-export-json').addEventListener('click', exportJson);
   document.getElementById('btn-export-csv').addEventListener('click', exportCsv);
@@ -968,7 +980,7 @@ async function runParametricSweep() {
   const totalSimulations = tilts.length * azimuths.length;
   let completed = 0;
 
-  if (!acknowledgement.checked || sweepInProgress) return;
+  if (!acknowledgement.checked || sweepInProgress || optimizerInProgress) return;
   if (!validateSimulationInputs()) {
     showToast('Correct the highlighted simulator input before running the comparison.', 'error');
     return;
@@ -976,6 +988,7 @@ async function runParametricSweep() {
 
   sweepInProgress = true;
   sweepController = new AbortController();
+  updateOptimizerAvailability();
   button.disabled = true;
   button.textContent = 'Running comparison…';
   button.setAttribute('aria-busy', 'true');
@@ -1052,7 +1065,513 @@ async function runParametricSweep() {
     acknowledgement.checked = false;
     button.disabled = true;
     cancelButton.hidden = true;
+    updateOptimizerAvailability();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Optimal orientation search
+//
+// One hourly PVWatts request returns the weather PVWatts used. The browser
+// reruns the fixed-array model (orientation_model.js) for every orientation,
+// scaled to match the official result at the current orientation, and one
+// more official request confirms the best orientation it finds.
+// ---------------------------------------------------------------------------
+
+// Sequential bins in Solar Charge: brighter means closer to the optimum.
+const ORIENTATION_BINS = Object.freeze([
+  { min: 0.99, color: '#FFD140', label: '≥ 99%' },
+  { min: 0.97, color: '#C9A42E', label: '97–99%' },
+  { min: 0.95, color: '#957A26', label: '95–97%' },
+  { min: 0.90, color: '#66541D', label: '90–95%' },
+  { min: 0.80, color: '#3F3717', label: '80–90%' },
+  { min: -Infinity, color: '#1C2433', label: '< 80%' }
+]);
+
+const TIME_MODE_LABELS = Object.freeze({
+  interpolate: 'Hourly averages, sun at mid-hour with sunrise/sunset interpolation',
+  instant30: 'Timestamped records, sun at half past each hour',
+  instant0: 'Timestamped records, sun at the top of each hour'
+});
+
+function compassPoint(azimuth) {
+  const points = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  return points[Math.round((((azimuth % 360) + 360) % 360) / 45) % 8];
+}
+
+function orientationLabel(tilt, azimuth) {
+  return `${formatDecimal(tilt, 0)}° / ${formatDecimal(azimuth, 0)}°`;
+}
+
+// Everything that defines the search except the orientation itself.
+function optimizerSignature(params) {
+  const { tilt, azimuth, ...rest } = params;
+  return JSON.stringify({ ...rest, location: currentLocation.name });
+}
+
+function updateOptimizerAvailability(params = getParams()) {
+  const button = document.getElementById('btn-run-optimizer');
+  const help = document.getElementById('optimizer-help');
+  if (!button || !help) return;
+  const support = OrientationModel.localModelSupport(params);
+  button.disabled = !support.supported || optimizerInProgress || sweepInProgress;
+  if (!optimizerInProgress) {
+    help.textContent = support.supported
+      ? optimizerMessage || 'Uses 2 PVWatts requests. The orientation search itself runs in your browser.'
+      : support.reason;
+    help.classList.toggle('is-warning', !support.supported);
+  }
+  const stale = document.getElementById('optimizer-stale');
+  if (stale) stale.hidden = !optimizerResult || optimizerResult.signature === optimizerSignature(params);
+}
+
+function setOptimizerLoading(visible, status = '', detail = '', percent = 0) {
+  const container = document.getElementById('optimizer-chart-container');
+  const loading = document.getElementById('optimizer-loading');
+  container.setAttribute('aria-busy', String(visible));
+  loading.hidden = !visible;
+  if (!visible) return;
+  document.getElementById('optimizer-status').textContent = status;
+  document.getElementById('optimizer-status-detail').textContent = detail;
+  const progress = document.getElementById('optimizer-progress');
+  const rounded = Math.max(0, Math.min(100, Math.round(percent)));
+  progress.value = rounded;
+  progress.textContent = `${rounded}%`;
+  document.getElementById('optimizer-progress-label').textContent = `${rounded}%`;
+}
+
+function cancelOrientationOptimizer() {
+  if (!optimizerInProgress || !optimizerController) return;
+  setOptimizerLoading(true, 'Cancelling search…', 'No further PVWatts requests will be sent.', Number(document.getElementById('optimizer-progress').value) || 0);
+  optimizerController.abort();
+}
+
+function weatherFromHourlyResult(hourlyResult, params) {
+  const station = hourlyResult.stationInfo || {};
+  const lat = Number.isFinite(Number(station.lat)) ? Number(station.lat) : params.lat;
+  const lon = Number.isFinite(Number(station.lon)) ? Number(station.lon) : params.lon;
+  const tz = Number.isFinite(Number(station.tz)) ? Number(station.tz) : Math.round(lon / 15);
+  return {
+    ...hourlyResult.hourly,
+    lat,
+    lon,
+    tz,
+    elev: Number(station.elev) || 0
+  };
+}
+
+async function runOrientationOptimizer() {
+  if (optimizerInProgress || sweepInProgress) return;
+  if (!validateSimulationInputs()) {
+    showToast('Correct the highlighted simulator input before running the search.', 'error');
+    return;
+  }
+  const params = getParams();
+  const support = OrientationModel.localModelSupport(params);
+  if (!support.supported) {
+    showToast(support.reason, 'error');
+    return;
+  }
+
+  const button = document.getElementById('btn-run-optimizer');
+  const cancelButton = document.getElementById('btn-cancel-optimizer');
+  const empty = document.getElementById('optimizer-empty');
+  const help = document.getElementById('optimizer-help');
+  optimizerInProgress = true;
+  optimizerController = new AbortController();
+  const { signal } = optimizerController;
+  const apiKey = getApiKey();
+  const baseTilt = params.tilt;
+  const baseAzimuth = ((params.azimuth % 360) + 360) % 360;
+  let requestsSent = 0;
+
+  button.disabled = true;
+  button.textContent = 'Searching…';
+  button.setAttribute('aria-busy', 'true');
+  cancelButton.hidden = false;
+  empty.hidden = true;
+  help.textContent = 'You can cancel at any time. Cancelling stops any request that has not been sent.';
+  document.getElementById('btn-run-sweep').disabled = true;
+  setSimulatorControlsForSweep(true);
+
+  try {
+    setOptimizerLoading(true, 'Requesting hourly weather…', `1 official PVWatts request for ${currentLocation.name} at ${orientationLabel(baseTilt, baseAzimuth)}.`, 2);
+    requestsSent += 1;
+    const hourlyResult = await pvwattsClient.simulateHourly(params, { apiKey, signal });
+
+    setOptimizerLoading(true, 'Checking the local model…', 'Comparing the in-browser model with the official hourly result.', 8);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const model = OrientationModel.calibrate(weatherFromHourlyResult(hourlyResult, params), params, {
+      tilt: baseTilt,
+      azimuth: baseAzimuth,
+      acAnnualKwh: hourlyResult.annualAcKwh,
+      hourlyPoa: hourlyResult.hourly.poa,
+      hourlyAc: hourlyResult.hourly.ac
+    });
+    if (signal.aborted) throw new DOMException('Search cancelled', 'AbortError');
+
+    const search = await OrientationModel.optimize(model, {
+      signal,
+      onProgress: (done, total) => setOptimizerLoading(
+        true,
+        'Searching orientations in your browser…',
+        `${done.toLocaleString()} of ${total.toLocaleString()} orientations evaluated. No API requests.`,
+        10 + 80 * (done / total)
+      )
+    });
+
+    const best = search.best;
+    let confirmedAcKwh = hourlyResult.annualAcKwh;
+    const sameAsCurrent = best.tilt === baseTilt && (best.azimuth === baseAzimuth || best.tilt === 0);
+    if (!sameAsCurrent) {
+      setOptimizerLoading(true, 'Confirming with PVWatts…', `1 official request at ${orientationLabel(best.tilt, best.azimuth)}.`, 94);
+      requestsSent += 1;
+      const confirmation = await pvwattsClient.simulate({ ...params, tilt: best.tilt, azimuth: best.azimuth }, { apiKey, signal });
+      confirmedAcKwh = confirmation.annualAcKwh;
+    }
+
+    optimizerResult = {
+      signature: optimizerSignature(params),
+      params,
+      model,
+      search,
+      best,
+      base: { tilt: baseTilt, azimuth: baseAzimuth, officialAcKwh: hourlyResult.annualAcKwh },
+      confirmedAcKwh,
+      requestsSent,
+      station: hourlyResult.stationInfo || {},
+      dataset: params.dataset
+    };
+    renderOptimizerResult(optimizerResult);
+    optimizerMessage = `Search complete with ${requestsSent} PVWatts ${requestsSent === 1 ? 'request' : 'requests'}.`;
+    showToast(`Optimal orientation: ${orientationLabel(best.tilt, best.azimuth)} (tilt / azimuth).`);
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      optimizerMessage = 'Search cancelled. No further requests were sent.';
+      showToast('Orientation search cancelled.');
+    } else {
+      console.error('Orientation search failed:', error);
+      optimizerMessage = `The search stopped: ${error.message}`;
+      showToast(`Orientation search stopped: ${error.message}`, 'error');
+    }
+    empty.hidden = Boolean(optimizerResult);
+  } finally {
+    setSimulatorControlsForSweep(false);
+    optimizerInProgress = false;
+    optimizerController = null;
+    setOptimizerLoading(false);
+    button.textContent = 'Find optimal orientation';
+    button.removeAttribute('aria-busy');
+    cancelButton.hidden = true;
+    const acknowledgement = document.getElementById('sweep-quota-ack');
+    document.getElementById('btn-run-sweep').disabled = !acknowledgement.checked;
+    updateOptimizerAvailability();
+  }
+}
+
+// Describe the near-optimal plateau from the coarse grid: the tilt range and
+// the azimuth range (measured around the best azimuth) within 1% of the best.
+function nearOptimalRanges(search, threshold = 0.99) {
+  const { tilts, azimuths, values, best } = search;
+  let tiltMin = Infinity;
+  let tiltMax = -Infinity;
+  let offsetMin = Infinity;
+  let offsetMax = -Infinity;
+  tilts.forEach((tilt, ti) => {
+    azimuths.forEach((azimuth, ai) => {
+      if (values[ti * azimuths.length + ai] < best.acKwh * threshold) return;
+      tiltMin = Math.min(tiltMin, tilt);
+      tiltMax = Math.max(tiltMax, tilt);
+      if (tilt === 0) return;
+      const offset = ((azimuth - best.azimuth + 540) % 360) - 180;
+      offsetMin = Math.min(offsetMin, offset);
+      offsetMax = Math.max(offsetMax, offset);
+    });
+  });
+  const wrap = value => ((Math.round(best.azimuth + value) % 360) + 360) % 360;
+  return {
+    tiltMin,
+    tiltMax,
+    azimuthFrom: Number.isFinite(offsetMin) ? wrap(offsetMin) : null,
+    azimuthTo: Number.isFinite(offsetMax) ? wrap(offsetMax) : null,
+    allAzimuths: Number.isFinite(offsetMin) && offsetMax - offsetMin >= 355
+  };
+}
+
+function renderOptimizerResult(result) {
+  const { best, base, confirmedAcKwh, model, search } = result;
+  const gain = confirmedAcKwh - base.officialAcKwh;
+  const gainPercent = base.officialAcKwh > 0 ? (gain / base.officialAcKwh) * 100 : 0;
+  const check = model.baseline.acDifferencePercent;
+
+  document.getElementById('optimizer-results').hidden = false;
+  document.getElementById('optimizer-kpi-orientation').textContent = orientationLabel(best.tilt, best.azimuth);
+  document.getElementById('optimizer-kpi-orientation-note').textContent =
+    best.tilt === 0 ? 'Flat. Azimuth has no effect at 0° tilt.' : `Tilt / azimuth, facing ${compassPoint(best.azimuth)}, searched to 1°.`;
+  document.getElementById('optimizer-kpi-energy').textContent = Math.round(confirmedAcKwh).toLocaleString();
+  document.getElementById('optimizer-kpi-energy-note').textContent = result.requestsSent > 1
+    ? `Confirmed by official PVWatts v8. Local estimate was ${Math.round(best.acKwh).toLocaleString()} kWh.`
+    : 'Your current orientation is already the optimum, so no second request was needed.';
+  document.getElementById('optimizer-kpi-gain').textContent =
+    `${gain >= 0 ? '+' : '−'}${Math.round(Math.abs(gain)).toLocaleString()}`;
+  document.getElementById('optimizer-kpi-gain-note').textContent =
+    `${gainPercent >= 0 ? '+' : '−'}${formatDecimal(Math.abs(gainPercent), 1, 1)}% versus ${orientationLabel(base.tilt, base.azimuth)} (official results).`;
+  document.getElementById('optimizer-kpi-check').textContent = `${check >= 0 ? '+' : '−'}${formatDecimal(Math.abs(check), 2, 2)}`;
+  document.getElementById('optimizer-kpi-check-note').textContent = Math.abs(check) <= 1
+    ? 'Local model versus official PVWatts at your orientation, before scaling.'
+    : 'Larger than usual. Values are scaled to match, and the optimum is still confirmed officially.';
+
+  const ranges = nearOptimalRanges(search);
+  const tiltText = ranges.tiltMin === ranges.tiltMax ? `${ranges.tiltMin}°` : `${ranges.tiltMin}–${ranges.tiltMax}°`;
+  let azimuthText = '';
+  if (ranges.allAzimuths) azimuthText = 'any azimuth';
+  else if (ranges.azimuthFrom !== null) azimuthText = `azimuths ${ranges.azimuthFrom}–${ranges.azimuthTo}°`;
+  document.getElementById('optimizer-plateau').textContent = azimuthText
+    ? `Within 1% of the optimum: tilts ${tiltText} and ${azimuthText}. Small compromises in roof pitch or direction cost little energy.`
+    : `Within 1% of the optimum: tilts ${tiltText}.`;
+
+  renderOptimizerMethod(result);
+  renderOrientationTable(search);
+  document.getElementById('optimizer-empty').hidden = true;
+  document.getElementById('optimizer-figure').hidden = false;
+  drawOrientationHeatmap();
+  updateOptimizerAvailability();
+}
+
+function renderOptimizerMethod(result) {
+  const { model, best, confirmedAcKwh, station, search } = result;
+  const b = model.baseline;
+  const stationName = [station.city, station.state].filter(Boolean).join(', ')
+    || `${formatDecimal(model.prepared.lat, 3)}, ${formatDecimal(model.prepared.lon, 3)}`;
+  const confirmDifference = best.acKwh > 0 ? (confirmedAcKwh / best.acKwh - 1) * 100 : 0;
+  const coarseCount = (search.tilts.length - 1) * search.azimuths.length;
+  const rows = [
+    ['Weather', `${datasetLabel(result.dataset)} · ${stationName} · UTC${model.prepared.tz >= 0 ? '+' : ''}${model.prepared.tz}`],
+    ['Timestamp convention', TIME_MODE_LABELS[model.timeMode] || model.timeMode],
+    ['At your orientation', `Official ${Math.round(b.officialAcKwh).toLocaleString()} kWh · local ${Math.round(b.localAcKwh).toLocaleString()} kWh (${b.acDifferencePercent >= 0 ? '+' : '−'}${formatDecimal(Math.abs(b.acDifferencePercent), 2, 2)}%)`],
+    ['Hourly plane-of-array fit', `RMSE ${formatDecimal(b.poaRmse, 1, 1)} W/m² across 8,760 hours`],
+    ['Scaling applied', `× ${formatDecimal(model.scale, 4, 4)}`],
+    ['At the optimum', result.requestsSent > 1
+      ? `Local ${Math.round(best.acKwh).toLocaleString()} kWh · official ${Math.round(confirmedAcKwh).toLocaleString()} kWh (${confirmDifference >= 0 ? '+' : '−'}${formatDecimal(Math.abs(confirmDifference), 2, 2)}%)`
+      : 'Same as your current orientation'],
+    ['Orientations evaluated', `${coarseCount.toLocaleString()} on a 5° grid, then a 1° refinement around the best cell`],
+    ['PVWatts requests', String(result.requestsSent)]
+  ];
+  const list = document.getElementById('optimizer-method-list');
+  list.replaceChildren(...rows.map(([term, detail]) => {
+    const row = document.createElement('div');
+    const dt = document.createElement('dt');
+    dt.textContent = term;
+    const dd = document.createElement('dd');
+    dd.textContent = detail;
+    row.append(dt, dd);
+    return row;
+  }));
+  document.getElementById('optimizer-method-panel').hidden = false;
+}
+
+function renderOrientationTable(search) {
+  const { tilts, azimuths, values } = search;
+  const tableTilts = tilts.filter(tilt => tilt % 10 === 0);
+  const tableAzimuths = azimuths.filter(azimuth => azimuth % 30 === 0);
+  const head = document.getElementById('optimizer-table-head');
+  const headerRow = document.createElement('tr');
+  const corner = document.createElement('th');
+  corner.scope = 'col';
+  corner.textContent = 'Tilt / azimuth';
+  headerRow.appendChild(corner);
+  tableAzimuths.forEach(azimuth => {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    th.textContent = `${azimuth}° ${compassPoint(azimuth)}`;
+    headerRow.appendChild(th);
+  });
+  head.replaceChildren(headerRow);
+
+  const body = document.getElementById('optimizer-table-body');
+  body.replaceChildren(...tableTilts.map(tilt => {
+    const row = document.createElement('tr');
+    const th = document.createElement('th');
+    th.scope = 'row';
+    th.textContent = `${tilt}°`;
+    row.appendChild(th);
+    const ti = tilts.indexOf(tilt);
+    tableAzimuths.forEach(azimuth => {
+      const td = document.createElement('td');
+      td.textContent = Math.round(values[ti * azimuths.length + azimuths.indexOf(azimuth)]).toLocaleString();
+      row.appendChild(td);
+    });
+    return row;
+  }));
+  document.getElementById('optimizer-data-panel').hidden = false;
+}
+
+function applyOptimalOrientation() {
+  if (!optimizerResult) return;
+  const { tilt, azimuth } = optimizerResult.best;
+  [['num-tilt', tilt], ['num-azimuth', azimuth]].forEach(([id, value]) => {
+    const input = document.getElementById(id);
+    input.value = String(value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  showToast(`Simulator set to ${orientationLabel(tilt, azimuth)}. Recalculating the official estimate.`);
+}
+
+// --- Heatmap ---------------------------------------------------------------
+
+const HEATMAP_MARGIN = Object.freeze({ top: 12, right: 12, bottom: 30, left: 40 });
+
+function orientationBin(ratio) {
+  return ORIENTATION_BINS.find(bin => ratio >= bin.min);
+}
+
+function initOrientationHeatmap() {
+  const legend = document.getElementById('optimizer-legend');
+  legend.replaceChildren(...ORIENTATION_BINS.map(bin => {
+    const item = document.createElement('span');
+    item.className = 'orientation-legend-item';
+    const swatch = document.createElement('span');
+    swatch.className = 'orientation-legend-swatch';
+    swatch.style.background = bin.color;
+    const label = document.createElement('span');
+    label.textContent = bin.label;
+    item.append(swatch, label);
+    return item;
+  }));
+
+  const plot = document.getElementById('orientation-plot');
+  const canvas = document.getElementById('chart-orientation');
+  const tooltip = document.getElementById('orientation-tooltip');
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(() => drawOrientationHeatmap()).observe(plot);
+  }
+  canvas.addEventListener('mousemove', event => {
+    const cell = orientationCellAt(event);
+    if (!cell) {
+      tooltip.hidden = true;
+      return;
+    }
+    const { search } = optimizerResult;
+    const value = search.values[cell.ti * search.azimuths.length + cell.ai];
+    const tilt = search.tilts[cell.ti];
+    const azimuth = search.azimuths[cell.ai];
+    tooltip.replaceChildren();
+    const title = document.createElement('strong');
+    title.textContent = tilt === 0 ? 'Tilt 0° (flat)' : `Tilt ${tilt}° · azimuth ${azimuth}° ${compassPoint(azimuth)}`;
+    const detail = document.createElement('span');
+    detail.textContent = `${Math.round(value).toLocaleString()} kWh · ${formatDecimal(value / search.best.acKwh * 100, 1, 1)}% of optimum`;
+    tooltip.append(title, detail);
+    tooltip.hidden = false;
+    const rect = plot.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const flip = x > rect.width - 220;
+    tooltip.style.left = `${flip ? x - tooltip.offsetWidth - 12 : x + 12}px`;
+    tooltip.style.top = `${Math.max(0, y - tooltip.offsetHeight - 8)}px`;
+  });
+  canvas.addEventListener('mouseleave', () => { tooltip.hidden = true; });
+}
+
+function heatmapGeometry(canvas, search) {
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  const plotWidth = width - HEATMAP_MARGIN.left - HEATMAP_MARGIN.right;
+  const plotHeight = height - HEATMAP_MARGIN.top - HEATMAP_MARGIN.bottom;
+  return {
+    width,
+    height,
+    plotWidth,
+    plotHeight,
+    cellWidth: plotWidth / search.azimuths.length,
+    cellHeight: plotHeight / search.tilts.length,
+    azimuthStep: search.azimuths[1] - search.azimuths[0],
+    tiltStep: search.tilts[1] - search.tilts[0]
+  };
+}
+
+function orientationCellAt(event) {
+  if (!optimizerResult) return null;
+  const canvas = event.currentTarget;
+  const geometry = heatmapGeometry(canvas, optimizerResult.search);
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left - HEATMAP_MARGIN.left;
+  const y = event.clientY - rect.top - HEATMAP_MARGIN.top;
+  if (x < 0 || y < 0 || x >= geometry.plotWidth || y >= geometry.plotHeight) return null;
+  const ai = Math.floor(x / geometry.cellWidth);
+  const ti = optimizerResult.search.tilts.length - 1 - Math.floor(y / geometry.cellHeight);
+  return { ai, ti };
+}
+
+function drawOrientationHeatmap() {
+  const canvas = document.getElementById('chart-orientation');
+  if (!optimizerResult || !canvas || canvas.closest('[hidden]')) return;
+  const { search, best, base } = optimizerResult;
+  const ratio = window.devicePixelRatio || 1;
+  const geometry = heatmapGeometry(canvas, search);
+  if (geometry.plotWidth <= 0 || geometry.plotHeight <= 0) return;
+  canvas.width = Math.round(geometry.width * ratio);
+  canvas.height = Math.round(geometry.height * ratio);
+  const context = canvas.getContext('2d');
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, geometry.width, geometry.height);
+
+  const { left, top } = HEATMAP_MARGIN;
+  const gap = geometry.cellWidth > 6 ? 1 : 0;
+  search.tilts.forEach((tilt, ti) => {
+    const y = top + geometry.plotHeight - (ti + 1) * geometry.cellHeight;
+    search.azimuths.forEach((azimuth, ai) => {
+      const value = search.values[ti * search.azimuths.length + ai];
+      context.fillStyle = orientationBin(value / best.acKwh).color;
+      context.fillRect(left + ai * geometry.cellWidth, y, geometry.cellWidth - gap, geometry.cellHeight - gap);
+    });
+  });
+
+  // Axes: compass azimuths along the bottom, tilt up the side.
+  context.fillStyle = UML_COLORS.textSecondary;
+  context.font = '11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+  context.textAlign = 'center';
+  context.textBaseline = 'top';
+  const xFor = azimuth => left + (azimuth / geometry.azimuthStep + 0.5) * geometry.cellWidth;
+  const yFor = tilt => top + geometry.plotHeight - (tilt / geometry.tiltStep + 0.5) * geometry.cellHeight;
+  [[0, '0° N'], [90, '90° E'], [180, '180° S'], [270, '270° W']].forEach(([azimuth, label]) => {
+    context.fillText(label, xFor(azimuth), top + geometry.plotHeight + 8);
+  });
+  context.textAlign = 'right';
+  context.textBaseline = 'middle';
+  [0, 30, 60, 90].forEach(tilt => context.fillText(`${tilt}°`, left - 8, yFor(tilt)));
+
+  const drawMarker = (azimuth, tilt, color, label, dashed) => {
+    const x = xFor(azimuth);
+    const y = yFor(tilt);
+    context.save();
+    context.lineWidth = 2;
+    context.strokeStyle = '#001C36';
+    context.beginPath();
+    context.arc(x, y, 8, 0, Math.PI * 2);
+    context.stroke();
+    context.strokeStyle = color;
+    if (dashed) context.setLineDash([3, 2]);
+    context.beginPath();
+    context.arc(x, y, 7, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
+    context.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+    context.textBaseline = 'middle';
+    const rightSide = x < left + geometry.plotWidth - 90;
+    context.textAlign = rightSide ? 'left' : 'right';
+    const textX = rightSide ? x + 12 : x - 12;
+    context.lineWidth = 3;
+    context.strokeStyle = '#001C36';
+    context.strokeText(label, textX, y);
+    context.fillStyle = color;
+    context.fillText(label, textX, y);
+  };
+  const sameCell = Math.abs(base.tilt - best.tilt) < geometry.tiltStep && Math.abs(base.azimuth - best.azimuth) < geometry.azimuthStep;
+  if (!sameCell) drawMarker(base.azimuth, base.tilt, UML_COLORS.lightBlue, 'Current', true);
+  drawMarker(best.azimuth, best.tilt, UML_COLORS.textPrimary, 'Optimum', false);
+
+  canvas.setAttribute('aria-label',
+    `Heatmap of estimated annual AC energy by tilt and azimuth. The optimum is ${best.tilt} degrees tilt at ${best.azimuth} degrees azimuth; your current orientation is ${base.tilt} degrees tilt at ${base.azimuth} degrees azimuth.`);
 }
 
 function downloadBlob(blob, filename) {

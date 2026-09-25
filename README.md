@@ -1,12 +1,12 @@
 # PVWatts Studio
 
-A small, dependency-free static web interface for the official **PVWatts® v8 API**. It provides location search, monthly production charts, exports, advanced model inputs, and tilt/azimuth studies.
+A small, dependency-free static web interface for the official **PVWatts® v8 API**. It provides location search, monthly production charts, exports, advanced model inputs, and an optimal tilt/azimuth search.
 
 The site is plain HTML, CSS, and JavaScript with no backend and no build step. The browser calls the PVWatts and geocoding services directly, so it can be hosted on any static host, including a free Cloudflare Pages project.
 
 ## Independent-project disclaimer
 
-> **PVWatts Studio is an independent, third-party educational project developed as part of graduate coursework.** It is not affiliated with, sponsored by, endorsed by, or an official product of the National Laboratory of the Rockies (NLR, formerly NREL), the U.S. Department of Energy, or the PVWatts program. The web application only sends requests to and consumes responses from the publicly available PVWatts API; it does not include or redistribute the PVWatts service or its source code. No ownership of PVWatts, its underlying models or data, or any related names or marks is claimed. PVWatts® and related marks are the property of their respective owners. Use of the upstream API remains subject to its applicable terms and policies.
+> **PVWatts Studio is an independent, third-party educational project developed as part of graduate coursework.** It is not affiliated with, sponsored by, endorsed by, or an official product of the National Laboratory of the Rockies (NLR, formerly NREL), the U.S. Department of Energy, or the PVWatts program. The web application's estimates come from the publicly available PVWatts API. Its orientation search also runs an independent in-browser model adapted from the open-source [SAM Simulation Core](https://github.com/NatLabRockies/ssc) (BSD 3-Clause; the notice is retained in [`static/orientation_model.js`](static/orientation_model.js)) and confirms its answer with the API. It does not include or redistribute the PVWatts service. No ownership of PVWatts, its underlying models or data, or any related names or marks is claimed. PVWatts® and related marks are the property of their respective owners. Use of the upstream API remains subject to its applicable terms and policies.
 
 ![PVWatts Studio interface](docs/imgs/pvwatts_studio.png)
 
@@ -50,7 +50,8 @@ Both upstream services send `Access-Control-Allow-Origin: *` on success and on e
 - System size, module type, array type, losses, tilt, azimuth, DC/AC ratio, inverter efficiency, ground coverage ratio, albedo, bifaciality, and monthly irradiance-loss inputs
 - Monthly and annual production, solar resource, capacity factor, and weather-grid metadata
 - JSON and CSV exports
-- A 77-combination tilt/azimuth parametric sweep
+- An optimal tilt/azimuth search that costs two PVWatts requests: one hourly request supplies the weather, the browser searches every orientation, and one request confirms the winner
+- The original 77-combination tilt/azimuth grid, run entirely through the official API, for verification
 - A **Solar News** view that lists photovoltaic headlines from publisher feeds, filterable by topic, source, and free-text search, with every entry linking to the publisher
 - A module datasheet reader that pulls specifications out of a manufacturer PDF into an editable table and works the standard datasheet calculations
 - Debounced updates, stale-request cancellation, and in-memory calculation caching
@@ -69,7 +70,26 @@ Location text
 
 [`static/pvwatts_client.js`](static/pvwatts_client.js) validates inputs in the browser, requests the selected `dataset` — `tmy3` by default, or `nsrdb`, `tmy2`, or `intl` — along with `radius=0` and `timeframe=monthly` from PVWatts, and normalizes the response into the shape the interface renders. The dataset and the station the upstream service selected are reported with every result and included in the JSON export. TMY3 stations are concentrated in the United States, so some locations need NSRDB or the international dataset.
 
-A normal update costs one PVWatts request unless an identical calculation is served from the in-memory cache. A full parametric sweep can cost up to 77 requests, so use a personal developer key for batch studies.
+A normal update costs one PVWatts request unless an identical calculation is served from the in-memory cache. The optimal orientation search costs two requests. The official 77-orientation grid can cost up to 77 requests, so use a personal developer key for batch studies.
+
+## Optimal orientation search
+
+The **Parametric Studio** tab finds the tilt and azimuth with the most annual AC energy for the current system, using two PVWatts requests instead of one per orientation:
+
+1. **One hourly request.** The client asks PVWatts for the current system with `timeframe=hourly`. Besides the official result, the response carries the year of weather PVWatts used: hourly beam (`dn`), diffuse (`df`), ambient temperature, wind speed, and albedo, plus the station's coordinates, time zone, and elevation.
+2. **A local model, checked against the official result.** [`static/orientation_model.js`](static/orientation_model.js) reruns the fixed-array path of PVWatts v8 in the browser. The timestamp convention is chosen by matching the official hourly plane-of-array irradiance, and one scale factor ties the local annual energy to the official figure at the current orientation. The difference before scaling is shown as the **Model check**.
+3. **A search in the browser.** About 1,300 orientations on a 5° grid (tilt 0–90°, azimuth 0–355°), then a 1° refinement around the best cell. This takes a few seconds and sends no requests.
+4. **One confirming request.** The best orientation is simulated by official PVWatts, and that official figure is what the page reports as the optimum's annual energy and the gain over the current orientation.
+
+The heatmap shows every orientation as a share of the optimum, and the summary names the tilt and azimuth ranges that stay within 1% of it.
+
+### The local model
+
+The model follows the SSC `pvwattsv8` compute module (the code the PVWatts API runs) for fixed open-rack and fixed roof-mount arrays: sunrise and sunset-hour sun position, the Perez 1990 sky model with PVWatts' low-sun and zero-diffuse cases, row-to-row self-shading for open racks, monthly soiling, DeSoto cover and air-mass losses, the NOCT cell-temperature model, the CEC single-diode model for PVWatts' three module types, DC losses, and the Sandia inverter model with PVWatts' coefficients. Sun position uses the NOAA equations with SPA's refraction correction instead of the full SPA series.
+
+Against NREL-PySAM's `Pvwattsv8` module on real TMY3 files (Greensboro, NC and Sand Point, AK), the local annual AC energy agrees within 0.07% across all three module types, both fixed array types, 4 kW to 1 MW systems, and orientations from flat to vertical and north- to west-facing, before any scaling. On a brute-force 1° PySAM search it picks the same optimum. `tests/test_orientation_model.mjs` pins this against [`tests/fixtures/orientation/greensboro_tmy3.json`](tests/fixtures/orientation/), which [`tools/make_orientation_fixture.py`](tools/make_orientation_fixture.py) regenerates.
+
+Tracking arrays and bifacial modules are not modeled locally; for those systems the search is disabled and the official 77-orientation grid remains available.
 
 ## Datasheet reader
 
@@ -149,9 +169,11 @@ The key remains visible in browser developer tools and is transmitted to NLR as 
 Run the complete test suite:
 
 ```bash
-node --test tests/test_pvwatts_client.mjs tests/test_datasheet_parser.mjs tests/test_news_fetcher.mjs
+node --test tests/test_pvwatts_client.mjs tests/test_orientation_model.mjs tests/test_datasheet_parser.mjs tests/test_news_fetcher.mjs
 python3 -m unittest tests.test_static_ui -v
 ```
+
+`tests/test_orientation_model.mjs` compares the in-browser orientation model with PVWatts v8 results recorded from NREL-PySAM. Regenerating that fixture is the only development step that needs third-party Python packages (`pip install nrel-pysam pvlib`).
 
 `tests/test_news_fetcher.mjs` runs the aggregator against recorded RSS 2.0 and Atom shapes, so it needs no network access and consumes no publisher traffic. `tests/test_static_ui.py` also checks the payload in `static/news.json` against the contract the news view relies on.
 

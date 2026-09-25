@@ -191,7 +191,8 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("Independent educational project", self.html)
         self.assertIn("graduate coursework", self.html)
         self.assertIn("not affiliated with", self.html)
-        self.assertIn("only consumes the public PVWatts API", self.html)
+        self.assertIn("estimates come from the public PVWatts API", self.html)
+        self.assertIn("confirms the result with the API", self.html)
 
     def test_monthly_solar_chart_is_built_with_api_data(self):
         self.assertIn("function renderMonthlySolarRadiationChart(res)", self.javascript)
@@ -250,6 +251,34 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("function renderSweepTable(", self.javascript)
         self.assertIn('id="sweep-data-caption"', self.html)
         self.assertIn(".sweep-spinner", self.styles)
+
+    def test_orientation_optimizer_uses_two_requests_and_is_accessible(self):
+        run_tag, run_button = self.parser.elements_by_id["btn-run-optimizer"]
+        cancel_tag, cancel_button = self.parser.elements_by_id["btn-cancel-optimizer"]
+        loading_tag, loading = self.parser.elements_by_id["optimizer-loading"]
+        canvas_tag, canvas = self.parser.elements_by_id["chart-orientation"]
+        self.assertEqual(run_tag, "button")
+        self.assertEqual(cancel_tag, "button")
+        self.assertIn("hidden", cancel_button)
+        self.assertEqual(loading["role"], "status")
+        self.assertEqual(canvas_tag, "canvas")
+        self.assertEqual(canvas["aria-describedby"], "optimizer-data-caption")
+        self.assertIn('id="optimizer-data-caption"', self.html)
+        self.assertIn(">2 API requests<", self.html)
+
+        # The model loads after the client and before the app that uses it.
+        client = self.html.index('src="pvwatts_client.js"')
+        model = self.html.index('src="orientation_model.js"')
+        app = self.html.index('src="app.js"')
+        self.assertLess(client, model)
+        self.assertLess(model, app)
+
+        # One hourly request, one official confirmation, cancellable in between.
+        self.assertIn("pvwattsClient.simulateHourly(params, { apiKey, signal })", self.javascript)
+        self.assertIn("pvwattsClient.simulate({ ...params, tilt: best.tilt, azimuth: best.azimuth }, { apiKey, signal })", self.javascript)
+        self.assertIn("optimizerController.abort()", self.javascript)
+        self.assertIn("OrientationModel.localModelSupport(params)", self.javascript)
+        self.assertIn("this.buildQuery(inputs, apiKey, 'hourly')", self.client)
 
     def test_sweep_inherits_current_size_and_losses_without_hidden_overrides(self):
         self.assertIn("systemCapacityKw: currentParams.systemCapacityKw", self.javascript)
