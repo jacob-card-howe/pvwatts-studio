@@ -745,14 +745,20 @@
           </p>
 
           <div class="news-filters">
-            <div class="news-filter-group" role="group" aria-label="Filter by topic">
-              <span class="news-filter-label">Topic</span>
-              <div id="news-filter-category" class="news-chip-row"></div>
-            </div>
-            <div class="news-filter-group" role="group" aria-label="Filter by source">
-              <span class="news-filter-label">Source</span>
-              <div id="news-filter-source" class="news-chip-row"></div>
-            </div>
+            <details class="news-filter-group">
+              <summary>
+                <span class="news-filter-label">Topic</span>
+                <span id="news-filter-category-current" class="news-filter-current">All topics</span>
+              </summary>
+              <div id="news-filter-category" class="news-chip-row" role="group" aria-label="Filter by topic"></div>
+            </details>
+            <details class="news-filter-group">
+              <summary>
+                <span class="news-filter-label">Source</span>
+                <span id="news-filter-source-current" class="news-filter-current">All sources</span>
+              </summary>
+              <div id="news-filter-source" class="news-chip-row" role="group" aria-label="Filter by source"></div>
+            </details>
             <div class="news-filter-tools">
               <label class="sr-only" for="news-search">Search headlines</label>
               <input id="news-search" class="news-search" type="search" placeholder="Search headlines" autocomplete="off">

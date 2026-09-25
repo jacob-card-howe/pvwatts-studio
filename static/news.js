@@ -90,6 +90,10 @@ function renderNewsFilters() {
       }));
     }
     newsElement(containerId).replaceChildren(...chips);
+    // The rows sit behind collapsed disclosures, so the summary names the
+    // active choice without having to open them.
+    const active = entries.find(entry => entry.value === newsState[key]);
+    newsElement(`${containerId}-current`).textContent = active ? active.label : allLabel;
   }
 }
 
