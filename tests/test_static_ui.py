@@ -285,6 +285,10 @@ class TestStaticUI(unittest.TestCase):
         self.assertIn("event.key === 'ArrowRight'", self.javascript)
         self.assertIn("candidate.setAttribute('aria-selected'", self.javascript)
 
+    def test_switching_tabs_opens_the_new_panel_at_the_top(self):
+        self.assertIn("const changed = tab.getAttribute('aria-selected') !== 'true';", self.javascript)
+        self.assertIn("if (changed) window.scrollTo({ top: 0, behavior: 'instant' });", self.javascript)
+
     def test_mobile_workflow_keeps_a_live_result_bridge_after_quick_inputs(self):
         self.assertIn('class="parameter-group quick-estimate-group"', self.html)
         self.assertIn('class="mobile-estimate-bridge"', self.html)

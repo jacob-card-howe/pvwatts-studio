@@ -174,6 +174,7 @@ function initTabs() {
   const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
 
   const activateTab = (tab, moveFocus = false) => {
+    const changed = tab.getAttribute('aria-selected') !== 'true';
     tabs.forEach(candidate => {
       const selected = candidate === tab;
       candidate.classList.toggle('active', selected);
@@ -190,7 +191,11 @@ function initTabs() {
     // Panels with their own loader (Solar News) follow activation without
     // being coupled to this function.
     window.dispatchEvent(new CustomEvent('pvwatts:tabchange', { detail: { tab: tab.id } }));
-    if (moveFocus) tab.focus();
+    // Panels share one document scroll, so a new panel would otherwise open
+    // at the previous panel's offset with its top hidden under the sticky
+    // header. Start each newly selected panel from the top.
+    if (changed) window.scrollTo({ top: 0, behavior: 'instant' });
+    if (moveFocus) tab.focus({ preventScroll: true });
   };
 
   tabs.forEach((tab, index) => {
