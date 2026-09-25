@@ -2618,6 +2618,29 @@ body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
   color: var(--text-primary);
 }
 
+.news-chip-all {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 0.2rem;
+}
+
+/* Topics are few, so they hold one row; chips share the width and truncate
+   rather than wrap on the narrowest phones. */
+#news-filter-category {
+  flex-wrap: nowrap;
+}
+
+#news-filter-category > .news-chip:not(.news-chip-all) {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .news-chip[aria-pressed="true"] {
   background: var(--accent-brand);
   border-color: var(--accent-brand);
@@ -2769,6 +2792,10 @@ body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
   .news-search,
   .news-chip {
     min-height: 44px;
+  }
+
+  .news-chip-all {
+    min-width: 44px;
   }
 }
 

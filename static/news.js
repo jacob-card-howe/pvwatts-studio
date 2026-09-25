@@ -74,6 +74,16 @@ function createNewsChip(label, value, pressed, onSelect) {
   return chip;
 }
 
+/** The "all" chip is an X icon; its accessible name still reads "All topics". */
+function createNewsClearChip(label, pressed, onSelect) {
+  const chip = createNewsChip('', NEWS_CATEGORY_ALL, pressed, onSelect);
+  chip.classList.add('news-chip-all');
+  chip.setAttribute('aria-label', label);
+  chip.title = label;
+  chip.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  return chip;
+}
+
 function renderNewsFilters() {
   const { data } = newsState;
   const rows = [
@@ -82,7 +92,7 @@ function renderNewsFilters() {
   ];
 
   for (const [containerId, allLabel, entries, key] of rows) {
-    const chips = [createNewsChip(allLabel, NEWS_CATEGORY_ALL, newsState[key] === NEWS_CATEGORY_ALL, select => {
+    const chips = [createNewsClearChip(allLabel, newsState[key] === NEWS_CATEGORY_ALL, select => {
       newsState[key] = select;
       renderNewsFilters();
       renderNewsList();
