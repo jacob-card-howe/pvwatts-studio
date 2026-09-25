@@ -1025,30 +1025,23 @@ body::before {
   }
 }
 
-/* Showcase the UML accent family in the multi-series parametric workspace. */
-#parametric-tab > .card {
-  position: relative;
-  overflow: hidden;
-}
-
-#parametric-tab > .card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 4px;
-  background: linear-gradient(
-    90deg,
-    var(--uml-green),
-    var(--uml-aqua),
-    var(--uml-yellow),
-    var(--uml-orange),
-    var(--uml-fern),
-    var(--uml-river),
-    var(--uml-gold),
-    var(--uml-maroon)
-  );
+/* Spectrum rail: the UML accent family marks the lead panel of every tab.
+   Painted as a background layer rather than a clipped pseudo-element so the
+   card never needs overflow: hidden (the location results list overlays it). */
+.card.panel-rail {
+  background:
+    linear-gradient(
+      90deg,
+      var(--uml-green),
+      var(--uml-aqua),
+      var(--uml-yellow),
+      var(--uml-orange),
+      var(--uml-fern),
+      var(--uml-river),
+      var(--uml-gold),
+      var(--uml-maroon)
+    ) top / 100% 4px no-repeat,
+    var(--bg-card);
 }
 
 /* Results Data Table */

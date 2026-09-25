@@ -168,7 +168,7 @@ The palette behaves like an instrument legend: dark hardware establishes the fie
 
 **The Signal Semantics Rule.** Blue and cyan mean interaction or information, green means valid or complete, and orange means error or recovery. Never swap these roles for visual variety.
 
-**The Full-Palette Exception Rule.** Use the extended fern, river, gold, and maroon accents together only in parametric comparison views where series distinction is functional.
+**The Full-Palette Exception Rule.** Use the extended fern, river, gold, and maroon accents together only in parametric comparison views where series distinction is functional, and in the Spectrum Rail that caps each tab's lead panel.
 
 ## Typography
 
@@ -247,6 +247,7 @@ Cyan-tinted one-pixel borders describe control boundaries and panel structure. A
 - **Shadow Strategy:** default Instrument Panel elevation; borders carry more hierarchy than shadow.
 - **Border:** one-pixel Quiet Structural Cyan at rest, strengthening modestly on hover.
 - **Internal Padding:** `1.25rem`, with `1rem` or `1.5rem` gaps between related surfaces.
+- **Spectrum Rail:** the first card in every workspace tab (Estimate, Compare, Datasheet, News) carries a `4px` full-palette rail across its top edge via the `panel-rail` class. It is a wayfinding signature, so it appears on exactly one panel per tab: every tab or none, never just one.
 
 ### Inputs / Fields
 - **Style:** recessed Input Well background, one-pixel Structural Cyan border, `10px` radius, and `0.55rem 0.75rem` padding.
@@ -288,4 +289,4 @@ Cyan-tinted one-pixel borders describe control boundaries and panel structure. A
 - **Don't** spread glow, blur, or translucency across every surface; instrument effects must explain depth or state.
 - **Don't** use monospace as a technical costume for prose, navigation, or general headings.
 - **Don't** extend the logo's legacy white-to-blue text gradient into headings, KPIs, or body copy.
-- **Don't** display the full accent family outside analytical comparison contexts.
+- **Don't** display the full accent family outside analytical comparison contexts and the per-tab Spectrum Rail.
