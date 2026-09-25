@@ -231,10 +231,16 @@ body::before {
   box-shadow: 0 0 12px var(--accent-brand-glow);
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+/* Mid widths: the tab bar drops to its own centered row under the brand. */
+@media (min-width: 761px) and (max-width: 1080px) {
+  .header-content {
+    flex-wrap: wrap;
+  }
+
+  .nav-tabs {
+    flex-basis: 100%;
+    justify-content: center;
+  }
 }
 
 .btn {
@@ -1227,8 +1233,7 @@ button svg,
   flex: 0 0 auto;
 }
 
-.nav-label-compact,
-.export-label-compact {
+.nav-label-compact {
   display: none;
 }
 
@@ -1338,11 +1343,28 @@ button svg,
   color: var(--uml-light-blue);
 }
 
+.results-table-header {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.results-table-heading {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.results-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .location-badge-label {
   max-width: 52ch;
   color: var(--text-muted);
   font-size: 0.8rem;
-  text-align: right;
   overflow-wrap: anywhere;
 }
 
@@ -1576,7 +1598,7 @@ button svg,
 
   .header-content {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.6rem 0.75rem;
   }
 
@@ -1602,21 +1624,7 @@ button svg,
     display: none;
   }
 
-  .header-actions {
-    grid-column: 2;
-    grid-row: 1;
-    gap: 0.4rem;
-  }
-
-  .header-actions .btn {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0.35rem 0.55rem;
-  }
-
   .nav-tabs {
-    grid-column: 1 / -1;
-    grid-row: 2;
     width: 100%;
     gap: 0.25rem;
   }
@@ -1629,13 +1637,11 @@ button svg,
     padding: 0.45rem 0.65rem;
   }
 
-  .nav-label-wide,
-  .export-label-wide {
+  .nav-label-wide {
     display: none;
   }
 
-  .nav-label-compact,
-  .export-label-compact {
+  .nav-label-compact {
     display: inline;
   }
 
@@ -1716,10 +1722,6 @@ button svg,
 
   .data-table {
     min-width: 760px;
-  }
-
-  .location-badge-label {
-    text-align: left;
   }
 
   .parametric-intro {
@@ -2355,27 +2357,6 @@ button svg,
 #ds-values-heading,
 .ds-spec-group {
   scroll-margin-top: 7rem;
-}
-
-/* The simulator's header exports belong to the calculation tabs, not PDFs. */
-body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
-  visibility: hidden;
-  pointer-events: none;
-}
-
-@media (min-width: 761px) and (max-width: 1080px) {
-  body:has(#tab-datasheet[aria-selected="true"]) .header-content {
-    flex-wrap: wrap;
-  }
-
-  body:has(#tab-datasheet[aria-selected="true"]) .nav-tabs {
-    flex-basis: 100%;
-    justify-content: center;
-  }
-
-  body:has(#tab-datasheet[aria-selected="true"]) .header-actions {
-    display: none;
-  }
 }
 
 @media (max-width: 1080px) {
