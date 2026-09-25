@@ -160,7 +160,19 @@ function renderNewsList() {
     ? `Showing ${items.length} of ${total} headlines.`
     : `${total} headlines, newest first.`;
   newsElement('news-empty').hidden = items.length > 0;
-  newsElement('news-updated').textContent = `Rebuilt ${formatNewsTimestamp(data.generated)} · every ${data.refreshHours} hours`;
+  renderNewsUpdated(data);
+}
+
+// Two unbreakable phrases, so a narrow card wraps the readout between them
+// instead of mid-date or past the card edge.
+function renderNewsUpdated(data) {
+  const when = document.createElement('span');
+  when.className = 'news-updated-when';
+  when.textContent = `Rebuilt ${formatNewsTimestamp(data.generated)}`;
+  const cadence = document.createElement('span');
+  cadence.className = 'news-updated-cadence';
+  cadence.textContent = `every ${data.refreshHours} hours`;
+  newsElement('news-updated').replaceChildren(when, cadence);
 }
 
 function renderNewsUnavailable() {
