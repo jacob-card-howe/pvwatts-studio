@@ -32,7 +32,7 @@ The public `DEMO_KEY` is used when no key is entered, but its low rate limit can
 
 ## Deploying to Cloudflare Pages
 
-`static/` is the complete site. There is no build step and no server-side code, so it fits comfortably in the Cloudflare Pages free tier.
+`static/` is the complete site. There is no build step and the site itself has no server-side code (the optional [MCP endpoint](#mcp-server-for-agents) is the one Pages Function), so it fits comfortably in the Cloudflare Pages free tier.
 
 ```bash
 npx wrangler pages deploy static --project-name pvwatts-studio
@@ -41,6 +41,40 @@ npx wrangler pages deploy static --project-name pvwatts-studio
 For the git integration, set the build command to none and the output directory to `static`. Any other static host works the same way.
 
 Both upstream services send `Access-Control-Allow-Origin: *` on success and on error responses, which is what makes the backend unnecessary.
+
+## MCP server for agents
+
+The deployment also serves a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `/mcp` (<https://jch-pvwatts-studio.pages.dev/mcp>), so an agent can send system parameters and get PVWatts results back without anyone typing into the web form. It is a stateless Streamable HTTP server (JSON-RPC over `POST`) in [`mcp/server.mjs`](mcp/server.mjs), mounted by the Pages Function [`functions/mcp.mjs`](functions/mcp.mjs). It reuses [`static/pvwatts_client.js`](static/pvwatts_client.js), so agents get the same validation and defaults as the browser. The `static/` site is unchanged, and `wrangler pages deploy static` picks up `functions/` automatically.
+
+| Tool | What it does |
+| --- | --- |
+| `search_location` | Geocodes a place, address, or postal code into up to five latitude/longitude candidates. |
+| `estimate_production` | One PVWatts v8 simulation: annual and monthly AC/DC energy, solar resource, capacity factor, kWh/kW, and the weather station. Takes `latitude`/`longitude` or a `location` string, plus any of the system inputs (`system_capacity_kw`, `tilt`, `azimuth`, `array_type`, `module_type`, `losses`, `dc_ac_ratio`, `inverter_efficiency`, `ground_coverage_ratio`, `albedo`, `bifaciality`, `monthly_irradiance_losses`, `dataset`). |
+| `compare_orientations` | Runs up to 12 candidate tilt/azimuth pairs (one API request each) and ranks them by annual energy. |
+
+The in-browser optimal-orientation search is not exposed: it evaluates thousands of orientations over 8,760 hours, which is more CPU than a Worker invocation is allowed. Agents can get the same answer by proposing candidates to `compare_orientations`.
+
+Configure the deployment in the Pages project settings (Settings, Variables and Secrets) or with `wrangler pages secret put <NAME> --project-name jch-pvwatts-studio`:
+
+- `PVWATTS_API_KEY`: the NLR developer key used when a caller sends none. A caller may instead send `X-PVWatts-Api-Key` or the `api_key` tool argument; without any key the shared `DEMO_KEY` is used and rate limits apply.
+- `MCP_AUTH_TOKEN`: when set, requests must carry `Authorization: Bearer <token>`. Set it whenever `PVWATTS_API_KEY` is set, otherwise anyone who finds the URL can spend your quota.
+
+Connect a client, for example Claude Code:
+
+```bash
+claude mcp add --transport http pvwatts https://jch-pvwatts-studio.pages.dev/mcp \
+  --header "Authorization: Bearer $MCP_AUTH_TOKEN"
+```
+
+Or call it directly:
+
+```bash
+curl -s https://jch-pvwatts-studio.pages.dev/mcp \
+  -H 'Content-Type: application/json' -H "Authorization: Bearer $MCP_AUTH_TOKEN" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"estimate_production","arguments":{"location":"Renton, WA","system_capacity_kw":8,"tilt":30,"azimuth":180}}}'
+```
+
+Run it locally with `npx wrangler pages dev static`, and test it with `node --test tests/test_mcp_server.mjs` (upstream calls are stubbed).
 
 ## Features
 

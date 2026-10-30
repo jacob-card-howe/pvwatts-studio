@@ -1,7 +1,8 @@
 name: Deploy
 
 # Pull requests run the tests only. Pushes to main deploy static/ to
-# Cloudflare Pages, but only after those same tests pass.
+# Cloudflare Pages (static/ plus the functions/ MCP endpoint), but only after
+# those same tests pass.
 on:
   push:
     branches: [main]
@@ -29,8 +30,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Test the PVWatts browser client, the orientation model, the datasheet reader, and the news aggregator
-        run: node --test tests/test_pvwatts_client.mjs tests/test_orientation_model.mjs tests/test_magnetic_declination.mjs tests/test_datasheet_parser.mjs tests/test_news_fetcher.mjs
+      - name: Test the PVWatts browser client, the orientation model, the datasheet reader, the news aggregator, and the MCP server
+        run: node --test tests/test_pvwatts_client.mjs tests/test_orientation_model.mjs tests/test_magnetic_declination.mjs tests/test_datasheet_parser.mjs tests/test_news_fetcher.mjs tests/test_mcp_server.mjs
 
       - uses: actions/setup-python@v7
         with:
