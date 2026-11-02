@@ -21,15 +21,27 @@ const OUTPUTS = {
 };
 
 /** Route PVWatts and geocoder URLs to canned replies and record every call. */
-function stubUpstream({ geocoder = [], pvwatts = outputsFor } = {}) {
+const NOW = Date.parse('2026-09-15T12:00:00Z');
+const NEWS = {
+  generated: '2026-09-15T06:00:00.000Z',
+  refreshHours: 6,
+  items: [
+    { title: 'Older research result', url: 'https://example.org/a', published: '2026-09-01T00:00:00.000Z', summary: 'Perovskite cells.', source: 'nature-energy', sourceName: 'Nature Energy', category: 'Research' },
+    { title: 'Utility signs solar PPA', url: 'https://example.org/b', published: '2026-09-15T08:00:00.000Z', summary: `Long ${'text '.repeat(100)}`, source: 'pv-magazine', sourceName: 'pv magazine', category: 'Industry' },
+    { title: 'Tariff ruling on modules', url: 'https://example.org/c', published: '2026-09-14T08:00:00.000Z', summary: 'Policy change.', source: 'pv-magazine', sourceName: 'pv magazine', category: 'Policy' }
+  ]
+};
+
+function stubUpstream({ geocoder = [], pvwatts = outputsFor, news = NEWS, newsStatus = 200 } = {}) {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     const parsed = new URL(url);
     calls.push({ url: parsed, headers: options.headers || {} });
+    if (parsed.pathname === '/news.json') return { ok: newsStatus === 200, status: newsStatus, json: async () => news };
     const body = parsed.hostname.includes('openstreetmap') ? geocoder : pvwatts(parsed);
     return { ok: true, status: 200, json: async () => body };
   };
-  return { calls, fetchImpl, client: new PVWattsClient({ fetchImpl }) };
+  return { calls, fetchImpl, now: () => NOW, client: new PVWattsClient({ fetchImpl }) };
 }
 
 function outputsFor(url) {
@@ -66,7 +78,7 @@ test('initialize negotiates the protocol version and advertises tools', async ()
 
 test('tools/list exposes every tool with an object input schema', async () => {
   const { body } = await rpc('tools/list');
-  assert.deepEqual(body.result.tools.map(tool => tool.name), ['search_location', 'estimate_production', 'compare_orientations']);
+  assert.deepEqual(body.result.tools.map(tool => tool.name), ['search_location', 'estimate_production', 'compare_orientations', 'summarize_news']);
   for (const tool of TOOLS) assert.equal(tool.inputSchema.type, 'object');
 });
 
@@ -188,4 +200,54 @@ test('MCP_AUTH_TOKEN, when set, gates the endpoint', async () => {
   assert.equal(wrong.status, 401);
   const ok = await handleRequest(post(body, { Authorization: 'Bearer secret' }), env, stubUpstream());
   assert.equal(ok.status, 200);
+});
+
+test('summarize_news lists the newest items first with trimmed excerpts and an overview', async () => {
+  const { body } = await rpc('tools/call', { name: 'summarize_news', arguments: {} });
+  const data = body.result.structuredContent;
+  assert.deepEqual(data.items.map(item => item.title), ['Utility signs solar PPA', 'Tariff ruling on modules', 'Older research result']);
+  assert.equal(data.items[0].published, '2026-09-15T08:00:00.000Z');
+  assert.equal(data.items[0].age_hours, 4);
+  assert.ok(data.items[0].excerpt.length <= 281 && data.items[0].excerpt.endsWith('\u2026'));
+  assert.deepEqual(data.overview.by_topic, { Industry: 1, Policy: 1, Research: 1 });
+  assert.deepEqual(data.overview.by_source, { 'pv magazine': 2, 'Nature Energy': 1 });
+  assert.equal(data.feed.age_hours, 6);
+  assert.equal(data.feed.note, undefined);
+});
+
+test('summarize_news filters by topic, source, text, age, and limit', async () => {
+  const run = async args => (await rpc('tools/call', { name: 'summarize_news', arguments: args })).body.result.structuredContent;
+  assert.deepEqual((await run({ category: 'Policy' })).items.map(item => item.source_id), ['pv-magazine']);
+  assert.equal((await run({ source: 'pv-magazine' })).matched, 2);
+  assert.equal((await run({ query: 'PEROVSKITE' })).matched, 1);
+  assert.equal((await run({ since_days: 2 })).matched, 2);
+  const limited = await run({ limit: 1 });
+  assert.equal(limited.returned, 1);
+  assert.equal(limited.matched, 3);
+});
+
+test('summarize_news reports a stale feed, a missing feed, and bad arguments', async () => {
+  const stale = await rpc('tools/call', { name: 'summarize_news', arguments: {} }, {
+    upstream: stubUpstream({ news: { ...NEWS, generated: '2026-09-10T00:00:00.000Z' } })
+  });
+  assert.match(stale.body.result.structuredContent.feed.note, /not been rebuilt/);
+
+  const missing = await rpc('tools/call', { name: 'summarize_news', arguments: {} }, { upstream: stubUpstream({ newsStatus: 404 }) });
+  assert.equal(missing.body.result.isError, true);
+  assert.match(missing.body.result.content[0].text, /unavailable/);
+
+  for (const args of [{ limit: 0 }, { limit: 99 }, { category: 'Gossip' }, { since_days: -1 }]) {
+    const { body } = await rpc('tools/call', { name: 'summarize_news', arguments: args });
+    assert.equal(body.result.isError, true, JSON.stringify(args));
+  }
+});
+
+test('summarize_news reads the feed through the Pages ASSETS binding when present', async () => {
+  const requested = [];
+  const env = { ASSETS: { fetch: async request => { requested.push(new URL(request.url).pathname); return Response.json(NEWS); } } };
+  const upstream = stubUpstream();
+  const { body } = await rpc('tools/call', { name: 'summarize_news', arguments: { limit: 1 } }, { env, upstream });
+  assert.equal(body.result.structuredContent.returned, 1);
+  assert.deepEqual(requested, ['/news.json']);
+  assert.equal(upstream.calls.length, 0);
 });
