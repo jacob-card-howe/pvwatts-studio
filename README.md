@@ -51,6 +51,7 @@ The deployment also serves a [Model Context Protocol](https://modelcontextprotoc
 | `search_location` | Geocodes a place, address, or postal code into up to five latitude/longitude candidates. |
 | `estimate_production` | One PVWatts v8 simulation: annual and monthly AC/DC energy, solar resource, capacity factor, kWh/kW, and the weather station. Takes `latitude`/`longitude` or a `location` string, plus any of the system inputs (`system_capacity_kw`, `tilt`, `azimuth`, `array_type`, `module_type`, `losses`, `dc_ac_ratio`, `inverter_efficiency`, `ground_coverage_ratio`, `albedo`, `bifaciality`, `monthly_irradiance_losses`, `dataset`). |
 | `compare_orientations` | Runs up to 12 candidate tilt/azimuth pairs (one API request each) and ranks them by annual energy. |
+| `summarize_news` | Lists the latest headlines from the aggregated Solar News feed (`news.json`), newest first, with publisher, topic, publish time, link, and the publisher's own excerpt, plus per-topic and per-source counts. Filter with `category`, `source`, `query`, `since_days`, and `limit` (default 10, up to 30). No PVWatts request or key is used. The excerpts are not generated summaries, and the feed is rebuilt on the deploy schedule, so the result reports its age. |
 
 The in-browser optimal-orientation search is not exposed: it evaluates thousands of orientations over 8,760 hours, which is more CPU than a Worker invocation is allowed. Agents can get the same answer by proposing candidates to `compare_orientations`.
 

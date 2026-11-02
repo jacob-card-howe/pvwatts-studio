@@ -21,7 +21,7 @@ const INSTRUCTIONS =
   'Estimate solar PV production with the official PVWatts v8 API. Give a place name or ' +
   'latitude/longitude plus system parameters; every field except the location is optional ' +
   'and defaults to the same values as the web interface. Use compare_orientations to ' +
-  'rank candidate tilt/azimuth pairs. Azimuth is degrees clockwise from true north (180 = south).';
+  'rank candidate tilt/azimuth pairs, and summarize_news for recent solar headlines. Azimuth is degrees clockwise from true north (180 = south).';
 
 const SYSTEM_PROPERTIES = {
   location: {
@@ -71,6 +71,11 @@ const ORIENTATION = {
   additionalProperties: false
 };
 
+const NEWS_CATEGORIES = ['Industry', 'Research', 'Policy', 'Video'];
+const NEWS_DEFAULT_LIMIT = 10;
+const NEWS_MAX_LIMIT = 30;
+const NEWS_EXCERPT_CHARS = 280;
+
 export const TOOLS = Object.freeze([
   {
     name: 'search_location',
@@ -117,6 +122,26 @@ export const TOOLS = Object.freeze([
       additionalProperties: false
     },
     annotations: { readOnlyHint: true, openWorldHint: true }
+  },
+  {
+    name: 'summarize_news',
+    title: 'Summarize solar news',
+    description:
+      'List the latest photovoltaic headlines from the aggregated Solar News feed, newest first: ' +
+      'title, publisher, topic, publish time, link, and the publisher\'s own excerpt (not a generated summary), ' +
+      'plus an overview of how many items each topic and source contributed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'integer', minimum: 1, maximum: NEWS_MAX_LIMIT, description: `Items to return. Default ${NEWS_DEFAULT_LIMIT}.` },
+        category: { type: 'string', enum: NEWS_CATEGORIES, description: 'Only this topic.' },
+        source: { type: 'string', description: 'Only this publisher id, for example "pv-magazine" or "canary-media".' },
+        query: { type: 'string', maxLength: 100, description: 'Only items whose title, excerpt, or publisher contains this text.' },
+        since_days: { type: 'number', exclusiveMinimum: 0, maximum: 365, description: 'Only items published within this many days of now.' }
+      },
+      additionalProperties: false
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false }
   }
 ]);
 
@@ -250,7 +275,80 @@ async function runTool(name, args, context) {
     };
   }
 
+  if (name === 'summarize_news') return summarizeNews(args, context);
+
   throw new ToolError(`Unknown tool: ${name}`);
+}
+
+function excerpt(text) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= NEWS_EXCERPT_CHARS) return clean;
+  return `${clean.slice(0, NEWS_EXCERPT_CHARS).replace(/\s+\S*$/, '')}\u2026`;
+}
+
+function countBy(items, key) {
+  const counts = {};
+  for (const item of items) counts[item[key]] = (counts[item[key]] || 0) + 1;
+  return counts;
+}
+
+async function summarizeNews(args, context) {
+  let feed;
+  try {
+    const response = await context.loadNews();
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    feed = await response.json();
+  } catch (error) {
+    throw new ToolError(`The news feed is unavailable: ${error.message}`);
+  }
+  if (!feed || !Array.isArray(feed.items)) throw new ToolError('The news feed has an unexpected format.');
+
+  const now = context.now();
+  const query = (args.query || '').trim().toLowerCase();
+  const cutoff = args.since_days === undefined ? null : now - args.since_days * 86400000;
+  const matches = feed.items
+    .map(item => ({ item, time: Date.parse(item.published) }))
+    .filter(({ item, time }) => {
+      if (args.category && item.category !== args.category) return false;
+      if (args.source && item.source !== args.source) return false;
+      if (cutoff !== null && !(time >= cutoff)) return false;
+      return !query || `${item.title} ${item.summary} ${item.sourceName}`.toLowerCase().includes(query);
+    })
+    .sort((a, b) => (b.time || 0) - (a.time || 0));
+
+  const shown = matches.slice(0, args.limit ?? NEWS_DEFAULT_LIMIT).map(({ item, time }) => ({
+    title: item.title,
+    source: item.sourceName,
+    source_id: item.source,
+    topic: item.category,
+    published: Number.isNaN(time) ? null : new Date(time).toISOString(),
+    age_hours: Number.isNaN(time) ? null : Math.max(0, Math.round((now - time) / 360000) / 10),
+    url: item.url,
+    excerpt: excerpt(item.summary)
+  }));
+
+  const generated = Date.parse(feed.generated);
+  const feedAgeHours = Number.isNaN(generated) ? null : Math.round((now - generated) / 360000) / 10;
+  const staleAfter = (Number(feed.refreshHours) || 6) * 3;
+  const matched = matches.map(({ item }) => item);
+  return {
+    feed: {
+      generated: Number.isNaN(generated) ? null : new Date(generated).toISOString(),
+      age_hours: feedAgeHours,
+      ...(feedAgeHours !== null && feedAgeHours > staleAfter
+        ? { note: 'The feed has not been rebuilt recently; newer stories may exist at the publishers.' }
+        : {})
+    },
+    matched: matches.length,
+    returned: shown.length,
+    overview: {
+      newest: shown[0]?.published ?? null,
+      oldest_matched: matches.length ? (Number.isNaN(matches.at(-1).time) ? null : new Date(matches.at(-1).time).toISOString()) : null,
+      by_topic: countBy(matched, 'category'),
+      by_source: countBy(matched, 'sourceName')
+    },
+    items: shown
+  };
 }
 
 function toolResult(payload, isError = false) {
@@ -270,6 +368,14 @@ async function callTool(params, context) {
   if (unknown.length) return { result: toolResult({ error: `Unknown argument(s): ${unknown.join(', ')}` }, true) };
   for (const field of tool.inputSchema.required || []) {
     if (args[field] === undefined) return { result: toolResult({ error: `Missing required argument: ${field}` }, true) };
+  }
+  if (tool.name === 'summarize_news') {
+    const { limit, category, since_days: sinceDays } = args;
+    const problem =
+      (limit !== undefined && !(Number.isInteger(limit) && limit >= 1 && limit <= NEWS_MAX_LIMIT) && `limit must be an integer from 1 to ${NEWS_MAX_LIMIT}`) ||
+      (category !== undefined && !NEWS_CATEGORIES.includes(category) && `category must be one of ${NEWS_CATEGORIES.join(', ')}`) ||
+      (sinceDays !== undefined && !(typeof sinceDays === 'number' && sinceDays > 0 && sinceDays <= 365) && 'since_days must be a number greater than 0 and at most 365');
+    if (problem) return { result: toolResult({ error: problem }, true) };
   }
   try {
     return { result: toolResult(await runTool(tool.name, args, context)) };
@@ -350,7 +456,7 @@ function json(body, status = 200, extra = {}) {
  */
 const sharedClient = new PVWattsClient();
 
-export async function handleRequest(request, env = {}, { fetchImpl = fetch, client = sharedClient } = {}) {
+export async function handleRequest(request, env = {}, { fetchImpl = fetch, client = sharedClient, now = Date.now } = {}) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (request.method !== 'POST') {
     return json(rpcError(null, -32000, 'This server answers POST requests only.'), 405, { Allow: 'POST, OPTIONS' });
@@ -371,7 +477,11 @@ export async function handleRequest(request, env = {}, { fetchImpl = fetch, clie
   }
 
   const headerKey = (request.headers.get('X-PVWatts-Api-Key') || '').trim();
-  const context = { fetchImpl, client, apiKey: headerKey || env.PVWATTS_API_KEY };
+  // The feed is a static file of this deployment, so read it through the
+  // Pages asset binding when there is one instead of calling ourselves over HTTP.
+  const newsRequest = new Request(new URL('/news.json', request.url));
+  const loadNews = () => (env.ASSETS ? env.ASSETS.fetch(newsRequest) : fetchImpl(newsRequest.url));
+  const context = { fetchImpl, client, now, loadNews, apiKey: headerKey || env.PVWATTS_API_KEY };
 
   if (Array.isArray(body)) {
     if (!body.length) return json(rpcError(null, -32600, 'Invalid request'), 400);
