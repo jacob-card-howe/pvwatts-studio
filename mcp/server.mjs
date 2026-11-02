@@ -26,7 +26,7 @@ const INSTRUCTIONS =
 const SYSTEM_PROPERTIES = {
   location: {
     type: 'string',
-    description: 'Place, address, postal code, or "lat, lon". Resolved to the best geocoder match. Ignored when latitude and longitude are given.'
+    description: 'Place, address, postal code, or "lat, lon". Resolved to the best geocoder match. Ignored when latitude and longitude are given. Requires an NREL API key; without one, pass latitude and longitude.'
   },
   latitude: { type: 'number', minimum: -90, maximum: 90 },
   longitude: { type: 'number', minimum: -180, maximum: 180 },
@@ -54,10 +54,6 @@ const SYSTEM_PROPERTIES = {
     type: 'string',
     enum: Object.keys(DATASETS),
     description: 'Weather dataset. tmy3 (default, US-centric stations), nsrdb (current gridded), tmy2, intl.'
-  },
-  api_key: {
-    type: 'string',
-    description: 'NLR developer API key. Prefer the X-PVWatts-Api-Key header or the server default so the key stays out of transcripts.'
   }
 };
 
@@ -80,7 +76,7 @@ export const TOOLS = Object.freeze([
   {
     name: 'search_location',
     title: 'Search locations',
-    description: 'Geocode a place, address, or postal code into up to five latitude/longitude candidates.',
+    description: 'Geocode a place, address, or postal code into up to five latitude/longitude candidates. Requires an NREL API key (bearer token).',
     inputSchema: {
       type: 'object',
       properties: { query: { type: 'string', minLength: 2, maxLength: 200 } },
@@ -111,7 +107,7 @@ export const TOOLS = Object.freeze([
     title: 'Compare orientations',
     description:
       `Run PVWatts once per candidate tilt/azimuth pair (up to ${MAX_ORIENTATIONS}, one API request each) ` +
-      'and rank them by annual AC energy. Shares all other system parameters.',
+      'and rank them by annual AC energy. Shares all other system parameters. Requires an NREL API key (bearer token).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -148,6 +144,14 @@ export const TOOLS = Object.freeze([
 /** A failure the agent can read and act on, reported as a tool error. */
 class ToolError extends Error {}
 
+const KEY_REQUIRED =
+  'This needs your own NREL API key (free at https://developer.nlr.gov/signup/). ' +
+  'Send it as the bearer token: Authorization: Bearer <key>.';
+
+function requireKey(context, what) {
+  if (!context.authenticated) throw new ToolError(`${what} ${KEY_REQUIRED}`);
+}
+
 function round(value, digits = 2) {
   const factor = 10 ** digits;
   return Math.round(value * factor) / factor;
@@ -183,7 +187,8 @@ function clientParams(args, location) {
   return params;
 }
 
-async function resolveLocation(args, { fetchImpl }) {
+async function resolveLocation(args, context) {
+  const { fetchImpl } = context;
   const hasLat = args.latitude !== undefined && args.latitude !== null;
   const hasLon = args.longitude !== undefined && args.longitude !== null;
   if (hasLat !== hasLon) throw new ToolError('Provide both latitude and longitude, or a location.');
@@ -193,6 +198,8 @@ async function resolveLocation(args, { fetchImpl }) {
   if (typeof args.location !== 'string' || !args.location.trim()) {
     throw new ToolError('Provide latitude and longitude, or a location to search for.');
   }
+  // Place-name lookups go to the shared public geocoder, so they need a key.
+  requireKey(context, 'Searching by place name uses a shared geocoder; pass latitude and longitude instead, or supply a key.');
   const [best, ...alternatives] = await searchLocations(args.location, { fetchImpl: userAgentFetch(fetchImpl) });
   if (!best) throw new ToolError(`No location found for "${args.location}". Try a more specific place or latitude/longitude.`);
   return { ...best, alternatives };
@@ -227,9 +234,10 @@ function summarize(result) {
 
 async function runTool(name, args, context) {
   const client = context.client;
-  const options = { apiKey: args.api_key || context.apiKey };
+  const options = { apiKey: context.apiKey };
 
   if (name === 'search_location') {
+    requireKey(context, 'Location search uses a shared geocoder.');
     const matches = await searchLocations(args.query, { fetchImpl: userAgentFetch(context.fetchImpl) });
     return { query: args.query, matches };
   }
@@ -245,6 +253,7 @@ async function runTool(name, args, context) {
   }
 
   if (name === 'compare_orientations') {
+    requireKey(context, `Comparing orientations sends up to ${MAX_ORIENTATIONS} requests.`);
     const location = await resolveLocation(args, context);
     const base = clientParams(args, location);
     const results = await Promise.all(
@@ -427,14 +436,6 @@ function rpcError(id, code, message) {
   return { jsonrpc: '2.0', id: id ?? null, error: { code, message } };
 }
 
-async function tokensMatch(provided, expected) {
-  const digest = async value => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
-  const [a, b] = await Promise.all([digest(provided), digest(expected)]);
-  let difference = 0;
-  for (let index = 0; index < a.length; index += 1) difference |= a[index] ^ b[index];
-  return difference === 0;
-}
-
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -449,10 +450,27 @@ function json(body, status = 200, extra = {}) {
   });
 }
 
+// NREL keys are 40 alphanumeric characters; accept anything key-shaped and let
+// the upstream service decide whether it is valid.
+const API_KEY_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
+
 /**
- * Serve one HTTP request. `env.MCP_AUTH_TOKEN`, when set, is required as a
- * bearer token; `env.PVWATTS_API_KEY` is the default NLR key for callers that
- * send none.
+ * The caller's NREL key, from `Authorization: Bearer <key>` or
+ * `X-PVWatts-Api-Key`. Returns null when there is none (or the shared
+ * DEMO_KEY), and false when a key was sent but is malformed.
+ */
+function callerKey(request) {
+  const bearer = /^Bearer\s+(.+)$/i.exec(request.headers.get('Authorization') || '');
+  const key = (bearer ? bearer[1] : request.headers.get('X-PVWatts-Api-Key') || '').trim();
+  if (!key || key === 'DEMO_KEY') return null;
+  return API_KEY_PATTERN.test(key) ? key : false;
+}
+
+/**
+ * Serve one HTTP request. The endpoint is public: callers bring their own NREL
+ * key, which is forwarded to PVWatts and never stored or logged, so each
+ * caller spends their own quota. Without a key the shared DEMO_KEY is used and
+ * only the cheap tools are available.
  */
 const sharedClient = new PVWattsClient();
 
@@ -462,11 +480,9 @@ export async function handleRequest(request, env = {}, { fetchImpl = fetch, clie
     return json(rpcError(null, -32000, 'This server answers POST requests only.'), 405, { Allow: 'POST, OPTIONS' });
   }
 
-  if (env.MCP_AUTH_TOKEN) {
-    const match = /^Bearer\s+(.+)$/i.exec(request.headers.get('Authorization') || '');
-    if (!match || !(await tokensMatch(match[1].trim(), env.MCP_AUTH_TOKEN))) {
-      return json(rpcError(null, -32001, 'Unauthorized'), 401, { 'WWW-Authenticate': 'Bearer' });
-    }
+  const apiKey = callerKey(request);
+  if (apiKey === false) {
+    return json(rpcError(null, -32001, 'The API key is malformed. Send your NREL key as the bearer token.'), 401, { 'WWW-Authenticate': 'Bearer' });
   }
 
   let body;
@@ -476,12 +492,11 @@ export async function handleRequest(request, env = {}, { fetchImpl = fetch, clie
     return json(rpcError(null, -32700, 'Parse error'), 400);
   }
 
-  const headerKey = (request.headers.get('X-PVWatts-Api-Key') || '').trim();
   // The feed is a static file of this deployment, so read it through the
   // Pages asset binding when there is one instead of calling ourselves over HTTP.
   const newsRequest = new Request(new URL('/news.json', request.url));
   const loadNews = () => (env.ASSETS ? env.ASSETS.fetch(newsRequest) : fetchImpl(newsRequest.url));
-  const context = { fetchImpl, client, now, loadNews, apiKey: headerKey || env.PVWATTS_API_KEY };
+  const context = { fetchImpl, client, now, loadNews, apiKey, authenticated: apiKey !== null };
 
   if (Array.isArray(body)) {
     if (!body.length) return json(rpcError(null, -32600, 'Invalid request'), 400);

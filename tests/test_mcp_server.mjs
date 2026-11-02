@@ -51,6 +51,8 @@ function outputsFor(url) {
   return { outputs: { ...OUTPUTS, ac_annual: acAnnual }, station_info: { city: 'SEATTLE', lat: 47.5 }, version: '8.3.0' };
 }
 
+const KEYED = { Authorization: 'Bearer abcdefgh12345678' };
+
 function post(body, headers = {}) {
   return new Request('https://example.test/mcp', {
     method: 'POST',
@@ -134,7 +136,7 @@ test('estimate_production geocodes a place name and sends the app User-Agent', a
   const upstream = stubUpstream({
     geocoder: [{ lat: '47.4829', lon: '-122.2171', display_name: 'Renton, King County, Washington, United States', type: 'city' }]
   });
-  const { body } = await rpc('tools/call', { name: 'estimate_production', arguments: { location: 'Renton, WA' } }, { upstream });
+  const { body } = await rpc('tools/call', { name: 'estimate_production', arguments: { location: 'Renton, WA' } }, { upstream, headers: KEYED });
   assert.equal(body.result.structuredContent.location.name, 'Renton, King County, Washington, United States');
   const geocode = upstream.calls.find(call => call.url.hostname.includes('openstreetmap'));
   assert.match(geocode.headers['User-Agent'], /pvwatts-studio-mcp/);
@@ -154,7 +156,7 @@ test('compare_orientations ranks candidates by annual energy', async () => {
         { tilt: 25, azimuth: 220 }
       ]
     }
-  });
+  }, { headers: KEYED });
   const data = body.result.structuredContent;
   assert.deepEqual(data.ranked.map(row => row.azimuth), [180, 220, 90]);
   assert.deepEqual(data.best, { tilt: 30, azimuth: 180 });
@@ -179,27 +181,50 @@ test('bad input comes back as a tool error, not a protocol error', async () => {
   assert.equal(unknown.body.error.code, -32602);
 });
 
-test('API key precedence: argument, then header, then server default, then DEMO_KEY', async () => {
-  const keyUsed = async (args, { env, headers } = {}) => {
+test('the caller\'s NREL key is forwarded: bearer or header, otherwise DEMO_KEY', async () => {
+  const keyUsed = async headers => {
     const upstream = stubUpstream();
-    await rpc('tools/call', { name: 'estimate_production', arguments: { latitude: 47, longitude: -122, ...args } }, { env, headers, upstream });
+    await rpc('tools/call', { name: 'estimate_production', arguments: { latitude: 47, longitude: -122 } }, { headers, upstream });
     return upstream.calls[0].url.searchParams.get('api_key');
   };
-  assert.equal(await keyUsed({ api_key: 'ARG' }, { env: { PVWATTS_API_KEY: 'ENV' }, headers: { 'X-PVWatts-Api-Key': 'HDR' } }), 'ARG');
-  assert.equal(await keyUsed({ tilt: 1 }, { env: { PVWATTS_API_KEY: 'ENV' }, headers: { 'X-PVWatts-Api-Key': 'HDR' } }), 'HDR');
-  assert.equal(await keyUsed({ tilt: 2 }, { env: { PVWATTS_API_KEY: 'ENV' } }), 'ENV');
-  assert.equal(await keyUsed({ tilt: 3 }), 'DEMO_KEY');
+  assert.equal(await keyUsed({ Authorization: 'Bearer MyOwnKey12345' }), 'MyOwnKey12345');
+  assert.equal(await keyUsed({ 'X-PVWatts-Api-Key': 'HeaderKey12345' }), 'HeaderKey12345');
+  assert.equal(await keyUsed({ Authorization: 'Bearer DEMO_KEY' }), 'DEMO_KEY');
+  assert.equal(await keyUsed({}), 'DEMO_KEY');
 });
 
-test('MCP_AUTH_TOKEN, when set, gates the endpoint', async () => {
-  const env = { MCP_AUTH_TOKEN: 'secret' };
-  const body = { jsonrpc: '2.0', id: 1, method: 'ping' };
-  const missing = await handleRequest(post(body), env, stubUpstream());
-  assert.equal(missing.status, 401);
-  const wrong = await handleRequest(post(body, { Authorization: 'Bearer nope' }), env, stubUpstream());
-  assert.equal(wrong.status, 401);
-  const ok = await handleRequest(post(body, { Authorization: 'Bearer secret' }), env, stubUpstream());
-  assert.equal(ok.status, 200);
+test('a malformed key is rejected before any upstream call', async () => {
+  const upstream = stubUpstream();
+  for (const value of ['Bearer short', 'Bearer has spaces in it', 'Bearer a&api_key=evil12345']) {
+    const response = await handleRequest(post({ jsonrpc: '2.0', id: 1, method: 'ping' }, { Authorization: value }), {}, upstream);
+    assert.equal(response.status, 401, value);
+  }
+  assert.equal(upstream.calls.length, 0);
+});
+
+test('without a key, only lat/lon estimates and news are available', async () => {
+  const denied = [
+    { name: 'search_location', arguments: { query: 'Renton, WA' } },
+    { name: 'estimate_production', arguments: { location: 'Renton, WA' } },
+    { name: 'compare_orientations', arguments: { latitude: 47, longitude: -122, orientations: [{ tilt: 20, azimuth: 180 }] } }
+  ];
+  for (const call of denied) {
+    const upstream = stubUpstream();
+    const { body } = await rpc('tools/call', call, { upstream });
+    assert.equal(body.result.isError, true, call.name);
+    assert.match(body.result.content[0].text, /NREL API key/);
+    assert.equal(upstream.calls.length, 0, call.name);
+  }
+  const estimate = await rpc('tools/call', { name: 'estimate_production', arguments: { latitude: 47, longitude: -122 } });
+  assert.equal(estimate.body.result.isError, undefined);
+  const news = await rpc('tools/call', { name: 'summarize_news', arguments: {} });
+  assert.equal(news.body.result.isError, undefined);
+});
+
+test('the key never appears in a tool result or the tool schemas', async () => {
+  const { body } = await rpc('tools/call', { name: 'estimate_production', arguments: { latitude: 47, longitude: -122 } }, { headers: KEYED });
+  assert.ok(!JSON.stringify(body).includes('abcdefgh12345678'));
+  assert.ok(!JSON.stringify(TOOLS).includes('api_key'));
 });
 
 test('summarize_news lists the newest items first with trimmed excerpts and an overview', async () => {

@@ -49,29 +49,37 @@ The deployment also serves a [Model Context Protocol](https://modelcontextprotoc
 | Tool | What it does |
 | --- | --- |
 | `search_location` | Geocodes a place, address, or postal code into up to five latitude/longitude candidates. |
-| `estimate_production` | One PVWatts v8 simulation: annual and monthly AC/DC energy, solar resource, capacity factor, kWh/kW, and the weather station. Takes `latitude`/`longitude` or a `location` string, plus any of the system inputs (`system_capacity_kw`, `tilt`, `azimuth`, `array_type`, `module_type`, `losses`, `dc_ac_ratio`, `inverter_efficiency`, `ground_coverage_ratio`, `albedo`, `bifaciality`, `monthly_irradiance_losses`, `dataset`). |
+| `estimate_production` | One PVWatts v8 simulation: annual and monthly AC/DC energy, solar resource, capacity factor, kWh/kW, and the weather station. Takes `latitude`/`longitude` or (with a key) a `location` string, plus any of the system inputs (`system_capacity_kw`, `tilt`, `azimuth`, `array_type`, `module_type`, `losses`, `dc_ac_ratio`, `inverter_efficiency`, `ground_coverage_ratio`, `albedo`, `bifaciality`, `monthly_irradiance_losses`, `dataset`). |
 | `compare_orientations` | Runs up to 12 candidate tilt/azimuth pairs (one API request each) and ranks them by annual energy. |
 | `summarize_news` | Lists the latest headlines from the aggregated Solar News feed (`news.json`), newest first, with publisher, topic, publish time, link, and the publisher's own excerpt, plus per-topic and per-source counts. Filter with `category`, `source`, `query`, `since_days`, and `limit` (default 10, up to 30). No PVWatts request or key is used. The excerpts are not generated summaries, and the feed is rebuilt on the deploy schedule, so the result reports its age. |
 
 The in-browser optimal-orientation search is not exposed: it evaluates thousands of orientations over 8,760 hours, which is more CPU than a Worker invocation is allowed. Agents can get the same answer by proposing candidates to `compare_orientations`.
 
-Configure the deployment in the Pages project settings (Settings, Variables and Secrets) or with `wrangler pages secret put <NAME> --project-name jch-pvwatts-studio`:
+### Authentication: bring your own NREL key
 
-- `PVWATTS_API_KEY`: the NLR developer key used when a caller sends none. A caller may instead send `X-PVWatts-Api-Key` or the `api_key` tool argument; without any key the shared `DEMO_KEY` is used and rate limits apply.
-- `MCP_AUTH_TOKEN`: when set, requests must carry `Authorization: Bearer <token>`. Set it whenever `PVWATTS_API_KEY` is set, otherwise anyone who finds the URL can spend your quota.
+The endpoint is public and holds no secrets. Callers send their own free [NREL developer key](https://developer.nlr.gov/signup/) as the bearer token (or in `X-PVWatts-Api-Key`). The server forwards it to PVWatts and never stores or logs it, so every caller spends their own quota. There is nothing to configure on the deployment.
+
+| | With a key | Without a key |
+| --- | --- | --- |
+| `estimate_production` | Latitude/longitude or place name | Latitude/longitude only, on the shared `DEMO_KEY` (low rate limit) |
+| `search_location`, place-name lookups | Yes | No: these use the shared public geocoder |
+| `compare_orientations` | Yes | No: it sends up to 12 requests |
+| `summarize_news` | Yes | Yes |
+
+The 77-combination parametric grid is not part of the MCP server; it runs only in the web app, in the visitor's browser, on their own key. A malformed key is rejected with HTTP 401; a well-formed but invalid one comes back as the PVWatts error. Add a Cloudflare rate-limiting rule on `/mcp` if you expect heavy public use.
 
 Connect a client, for example Claude Code:
 
 ```bash
 claude mcp add --transport http pvwatts https://jch-pvwatts-studio.pages.dev/mcp \
-  --header "Authorization: Bearer $MCP_AUTH_TOKEN"
+  --header "Authorization: Bearer $NREL_API_KEY"
 ```
 
 Or call it directly:
 
 ```bash
 curl -s https://jch-pvwatts-studio.pages.dev/mcp \
-  -H 'Content-Type: application/json' -H "Authorization: Bearer $MCP_AUTH_TOKEN" \
+  -H 'Content-Type: application/json' -H "Authorization: Bearer $NREL_API_KEY" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"estimate_production","arguments":{"location":"Renton, WA","system_capacity_kw":8,"tilt":30,"azimuth":180}}}'
 ```
 
