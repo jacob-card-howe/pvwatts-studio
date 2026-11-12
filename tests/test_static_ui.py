@@ -615,5 +615,82 @@ class TestStaticUI(unittest.TestCase):
         self.assertEqual(fetcher.count("await fetch("), 1, "each publisher is requested once, one after another")
         self.assertNotIn("Promise.all", fetcher, "no request burst")
 
+    # ------------------------------------------------------------------
+    # Progressive web app
+    # ------------------------------------------------------------------
+
+    def _service_worker(self):
+        return (ROOT / "static" / "sw.js").read_text(encoding="utf-8")
+
+    def test_the_page_links_the_manifest_icons_and_theme_color(self):
+        self.assertIn('<link rel="manifest" href="manifest.webmanifest">', self.html)
+        self.assertIn('<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">', self.html)
+        self.assertRegex(self.html, r'<meta name="theme-color" content="#[0-9A-Fa-f]{6}">')
+        self.assertIn("navigator.serviceWorker.register('sw.js')", self.html)
+        self.assertLess(self.html.index('src="news.js"'), self.html.index("serviceWorker.register"),
+                        "registration must not delay the app scripts")
+
+    def test_the_manifest_is_installable_and_every_icon_exists_at_its_size(self):
+        manifest = json.loads((ROOT / "static" / "manifest.webmanifest").read_text(encoding="utf-8"))
+        for field in ("name", "short_name", "start_url", "scope", "display", "theme_color", "background_color"):
+            with self.subTest(field=field):
+                self.assertTrue(manifest.get(field))
+        self.assertIn(manifest["display"], ("standalone", "fullscreen", "minimal-ui"))
+        self.assertIn(f'content="{manifest["theme_color"]}"', self.html)
+
+        png_sizes = set()
+        purposes = set()
+        for icon in manifest["icons"]:
+            with self.subTest(icon=icon["src"]):
+                path = ROOT / "static" / icon["src"]
+                self.assertTrue(path.is_file(), f"{icon['src']} is listed but missing")
+                purposes.update(icon.get("purpose", "any").split())
+                if icon["type"] == "image/png":
+                    width, height = self._png_size(path)
+                    self.assertEqual(f"{width}x{height}", icon["sizes"])
+                    png_sizes.add(width)
+        self.assertTrue({192, 512} <= png_sizes, "installability needs 192 and 512 px PNG icons")
+        self.assertIn("maskable", purposes)
+        self.assertEqual(self._png_size(ROOT / "static" / "icons" / "apple-touch-icon.png"), (180, 180))
+
+    @staticmethod
+    def _png_size(path):
+        header = path.read_bytes()[:24]
+        assert header[:8] == b"\x89PNG\r\n\x1a\n", f"{path.name} is not a PNG"
+        return int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
+
+    def test_the_service_worker_precaches_every_local_file_the_page_loads(self):
+        worker = self._service_worker()
+        shell = set(re.findall(r"^\s*'([^']+)',$", worker.split("const APP_SHELL = [")[1].split("];")[0], re.M))
+        referenced = set(re.findall(r'(?:src|href)="(?!https?:|#|data:)([^"]+)"', self.html))
+        referenced |= {"news.json"}  # fetched by news.js
+        self.assertFalse(referenced - shell, "files the page needs offline are missing from APP_SHELL")
+        for entry in shell - {"./"}:
+            with self.subTest(entry=entry):
+                self.assertTrue((ROOT / "static" / entry).is_file(), f"APP_SHELL lists a missing file: {entry}")
+        # Chart.js is needed to draw any result, so it is precached at its pinned URL.
+        chart = re.search(r'<script src="(https://cdn\.jsdelivr\.net/[^"]+)"', self.html).group(1)
+        self.assertIn(f"'{chart}'", worker)
+
+    def test_the_service_worker_never_caches_estimates_or_geocoding(self):
+        worker = self._service_worker()
+        for host in ("developer.nlr.gov", "nominatim.openstreetmap.org"):
+            with self.subTest(host=host):
+                self.assertNotIn(host, worker)
+        self.assertIn("if (request.method !== 'GET') return;", worker)
+        # Only version-pinned CDN URLs are treated as immutable.
+        self.assertIn(r"@\d+\.\d+\.\d+\/", worker)
+
+    def test_each_deploy_gets_a_fresh_service_worker_cache(self):
+        worker = self._service_worker()
+        self.assertIn("const BUILD_ID = '__BUILD_ID__';", worker, "the committed worker stays unstamped")
+        self.assertIn("const SHELL_CACHE = `pvwatts-shell-${BUILD_ID}`;", worker)
+        self.assertIn("caches.delete(name)", worker)
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        stamp = workflow.index('sed -i "s/__BUILD_ID__/${GITHUB_SHA}/" static/sw.js')
+        self.assertLess(stamp, workflow.index("pages deploy static"))
+        headers = (ROOT / "static" / "_headers").read_text(encoding="utf-8")
+        self.assertRegex(headers, r"/sw\.js\n\s+Cache-Control: no-cache")
+
 if __name__ == "__main__":
     unittest.main()

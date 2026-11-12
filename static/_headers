@@ -1,0 +1,11 @@
+# Cloudflare Pages response headers. This file is consumed by Pages and is
+# not served.
+
+# The service worker and manifest must be revalidated on every load so a new
+# deployment is picked up promptly instead of waiting out an edge or browser
+# cache.
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+  Content-Type: application/manifest+json
