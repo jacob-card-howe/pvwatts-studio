@@ -60,6 +60,13 @@ jobs:
         continue-on-error: true
         run: node tools/fetch_news.mjs
 
+      # Each deploy gets its own service-worker cache, so installed copies of
+      # the app swap to the new files and drop the old ones on next visit.
+      - name: Stamp the service worker with this build
+        run: |
+          sed -i "s/__BUILD_ID__/${GITHUB_SHA}/" static/sw.js
+          grep -q "const BUILD_ID = '${GITHUB_SHA}';" static/sw.js
+
       - name: Publish static/ to Cloudflare Pages
         id: publish
         uses: cloudflare/wrangler-action@v4

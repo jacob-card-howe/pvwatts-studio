@@ -42,6 +42,12 @@ For the git integration, set the build command to none and the output directory 
 
 Both upstream services send `Access-Control-Allow-Origin: *` on success and on error responses, which is what makes the backend unnecessary.
 
+### Installable app and offline use
+
+The site is a progressive web app: browsers offer to install it, and an installed or previously visited copy opens without a network. [`static/sw.js`](static/sw.js) precaches every local file, keeps the version-pinned Chart.js and pdf.js files from jsDelivr once fetched, and serves `news.json` network-first so the list is current when online and the last copy offline. PVWatts and Nominatim requests are never cached, so running an estimate always needs a connection; offline, it fails with the usual network error rather than showing results for an earlier request.
+
+The deploy workflow stamps the commit SHA into `sw.js` before publishing, so each deployment installs a fresh cache and removes the old one on the visitor's next load. The committed worker is left unstamped, and in that state it fetches the site's own files network-first, so local edits appear on a plain reload. Deploying by hand with `wrangler` skips the stamp, which gives the same network-first behavior. Re-run `node tools/make_icons.mjs` after changing `favicon.svg`.
+
 ## Features
 
 - Official PVWatts v8 calculations using the TMY3 station archive by default
@@ -57,6 +63,7 @@ Both upstream services send `Access-Control-Allow-Origin: *` on success and on e
 - A **Solar News** view that lists photovoltaic headlines from publisher feeds, filterable by topic, source, and free-text search, with every entry linking to the publisher
 - A module datasheet reader that pulls specifications out of a manufacturer PDF into an editable table and works the standard datasheet calculations
 - Debounced updates, stale-request cancellation, and in-memory calculation caching
+- Installable as a progressive web app, with the interface and the last news list available offline
 
 ## How it works
 
@@ -222,7 +229,7 @@ When changing request or response fields, update the client tests and the browse
 
 | Path | Purpose |
 | --- | --- |
-| [`static/`](static/) | The complete deployable site (313 KB, 81 KB gzipped) |
+| [`static/`](static/) | The complete deployable site (490 KB, 160 KB gzipped) |
 | [`static/index.html`](static/index.html) | Browser interface |
 | [`static/pvwatts_client.js`](static/pvwatts_client.js) | Official v8 adapter, input validation, geocoder, and cache |
 | [`static/app.js`](static/app.js) | Controls, charts, exports, and parametric sweep logic |
@@ -232,6 +239,10 @@ When changing request or response fields, update the client tests and the browse
 | [`static/datasheet_parser.js`](static/datasheet_parser.js) | Datasheet text-layer extraction, plausibility ranges, and derived metrics |
 | [`static/datasheet.js`](static/datasheet.js) | Datasheet tab: PDF loading, page rendering, editable table, and exports |
 | [`static/styles.css`](static/styles.css) | Interface styling |
+| [`static/sw.js`](static/sw.js) | Service worker: offline app shell and pinned-CDN caching |
+| [`static/manifest.webmanifest`](static/manifest.webmanifest) | Install metadata (name, colors, icons) |
+| [`static/icons/`](static/icons/) | Install icons, rendered from `favicon.svg` by [`tools/make_icons.mjs`](tools/make_icons.mjs) |
+| [`static/_headers`](static/_headers) | Cloudflare Pages headers that keep the service worker and manifest fresh |
 | [`tests/`](tests/) | Client and browser-markup regression tests |
 
 ### Data footprint policy

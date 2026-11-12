@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>PVWatts Studio — Official-Model Solar Production Estimates</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-title" content="PVWatts">
   <link rel="stylesheet" href="styles.css">
   <!-- Chart.js for beautiful interactive charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -988,5 +992,13 @@
   <script src="app.js"></script>
   <script src="datasheet.js"></script>
   <script src="news.js"></script>
+  <script>
+    // Installable app and offline interface; see sw.js for what is cached.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
